@@ -11,6 +11,8 @@ input_fn = 'master'
 input_fp = f'{input_fd}{input_fn}.xlsx'
 country = 'A'
 case_name = f'{country}_{input_fn}'
+switch = 0
+MESSAGE_root_fd = "C:/Programs/MESSAGE_INT/models/"
 
 
 # Read excel file
@@ -84,18 +86,24 @@ adb_s = f"adb: {case_name}\n"
 problem_s = f"problem: {case_name}\n"
 description_s = "description:\n"
 drate_s = f"drate: {drate * 100}\n"
-timesteps_s = f"timesteps: {' '.join(str(x) for x in list(range(year0, yearx+1)))}\n"
+timesteps_s = f"timesteps: {' '.join(str(x) for x in list(range(year0, yearx+1)))}\n" #todo: change this to match years user specify
 ts = []
+lengths = []
+
+ts_count = days_year * timesteps_day
+ts_length = round(1/ts_count, 6)
 
 for i in ascii_lowercase[0:days_year]:
     for j in ascii_lowercase[0:timesteps_day]:
         ts.append(f"{i}a{j}")
+        lengths.append(ts_length)
+
 
 loadregions_s = (f"loadregions: \n"
                  f"ltype  ordered seasonal 1 0 \n"
-                 f"year   {year0 + 1} 1 {int(days_year * timesteps_day)} \n"
+                 f"year   {year0 + 1} 1 {int(ts_count)} \n"
                  f"name   {' '.join(str(i) for i in ts)} \n"
-                 f"length {' '.join(str(i) for i in [round(1/len(ts),6)]*len(ts))} \n"
+                 f"length {' '.join(str(i) for i in lengths)} \n"
                  )
 #todo: to be changed to be more dynamic to allow for more technologies and other formulations
 energyforms_fuel_s = ""
@@ -132,13 +140,13 @@ energyforms_s = ("energyforms: \n"
                  "Fuel j\n"
                  "#\n"
                  f"{energyforms_fuel_s}"
-                 "*")
+                 "*\n")
 demand_s =       ("demand:\n"
                  f"b-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y[country]['electricity']])}\n"
                  f"c-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y[country]['heat']])}\n"
                  "loadcurve:"
                  f"year {year0+1}\n"
-                 f"b-a {' '.join(str(i) for i in [round(1/len(ts),6)]*len(ts))}\n"
+                 f"b-a {' '.join(str(i) for i in lengths)}\n"
                   )
 relations_s=    ("relationsc:\n"
                  "relationsp:\n"
@@ -216,25 +224,8 @@ end_s = ("resources: \n"
 adb_string = (tdb_s + adb_s + problem_s + description_s + drate_s + timesteps_s + loadregions_s + energyforms_s
               + demand_s + relations_s + systems_fuel_s + systems_pp_s + systems_trans_s + end_s)
 
-#.gen
-import re
-def find_and_replace(filepath, oldstrings:list, newstrings:list):
-    """
-    replace strings in a file and write out string after replacement
-    """
-    with open(filepath, 'r') as file:
-        filedata = file.read()
-
-    for idx, oldstring in oldstrings:
-        try:
-            filedata = re.sub(oldstring, newstrings[idx], filedata)
-        except:
-            pass
-
-    return filedata
 
 
-gen_s = find_and_replace()
 
 # drate
 # timesteps
@@ -260,6 +251,9 @@ if not os.path.exists(output_base_fd):
     os.makedirs(output_base_fd)
 
 output_fd = f"{output_base_fd}{case_name}"
+#remove folder if exists
+if os.path.exists(output_fd) and os.path.isdir(output_fd):
+    shutil.rmtree(output_fd)
 os.makedirs(output_fd)
 
 # Copy all files over from orig folder to new folder
@@ -274,3 +268,41 @@ for root, dirs, filenames in os.walk(output_fd):
             path = os.path.join(root, fn)
             newpath = os.path.join(root, fn.replace(orig_name, case_name))
             os.rename(path, newpath)
+
+#.gen
+
+#write out adb file
+adb_new_path =  f'{output_fd}/data/{case_name}.adb'
+with open(adb_new_path,'w') as file:
+    file.write(adb_string)
+
+#Edit MESSAGE directories
+# Copy new folder to MESSAGE directory
+MESSAGE_mod_fd = f"{MESSAGE_root_fd}{case_name}"
+os.makedirs(MESSAGE_mod_fd)
+shutil.copytree(output_fd, MESSAGE_mod_fd, dirs_exist_ok=True)
+
+# Add line to mms.pro
+#Only use the following if creating model for the first time
+if switch ==1:
+    MESSAGE_mms_fils = f"{MESSAGE_root_fd}/mms_fils/"
+
+    dir_s = (f"#call              answer\n"
+                f"supply             $MMS_HOME/{case_name}      \n"
+                f"grfdir             /tmp/grf/iaea           \n"
+                f"cin                $MMS_HOME/{case_name}/data \n"
+                f"tdb                $MMS_HOME/tdb           \n"
+                f"adb                $MMS_HOME/{case_name}/data \n"
+                f"ldb                $MMS_HOME/{case_name}/data \n"
+                f"upd                $MMS_HOME/{case_name}/data \n"
+                f"gen                $MMS_HOME/{case_name}/data \n"
+                f"data               $MMS_HOME/{case_name}/data \n"
+             )
+
+    with open(f"{MESSAGE_mms_fils}mms.pro", "a") as f1:
+        f1.write(f"\n{case_name}.dirfile   $MMS_HOME/mms_fils/{case_name}.dir")
+    with open(f"{MESSAGE_mms_fils}glob.reg", "a") as f2:
+        f2.write(f"\n{case_name}	{case_name}	{case_name}	+	empty")
+    dir_f = f"{MESSAGE_mms_fils}{case_name}.dir"
+    with open(dir_f, "w") as f3:
+        f3.write(dir_s)
