@@ -6,22 +6,34 @@ import shutil
 from string import ascii_lowercase
 
 orig_name = 'CountryA'
+province = 'Anhui'
+
 input_fd = 'E:/Work/benchmark/input/'
-input_fn = 'master'
+input_fn = 'Nationwide'
+input_fn_p = province
 input_fp = f'{input_fd}{input_fn}.xlsx'
-country = 'A'
-case_name = f'{country}_{input_fn}'
+input_fp_p = f'{input_fd}{input_fn_p}.xlsx'
+case_name = f'{province}_{input_fn}'
 switch = 0
 MESSAGE_root_fd = "C:/Programs/MESSAGE_INT/models/"
 
 
 # Read excel file
+# Nationwide
 input_xl = pd.ExcelFile(input_fp)
 input_sh = input_xl.sheet_names
 
 input_df_all = {}
 for i in input_sh:
     input_df_all[i] = input_xl.parse(i)
+
+# Provincial
+input_xl_p = pd.ExcelFile(input_fp_p)
+input_sh_p = input_xl_p.sheet_names
+
+input_df_p = {}
+for i in input_sh_p:
+    input_df_p[i] = input_xl_p.parse(i)
 
 # Read all parameters
 #General
@@ -30,53 +42,96 @@ days_year = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"]
 timesteps_day = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "Timesteps per day", "Value"].item())
 year0 = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "First year", "Value"].item())
 yearx = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "Last year", "Value"].item())
+years = list(input_df_all["Years"]['years'])
 
-#TechnologyData, TechnologyCapex
-tech_param = input_df_all["TechnologyData"].set_index('tech').T.to_dict()
-tech_capex = input_df_all["TechnologyCapex"].to_dict('list')
+#TechMap
+tech_map = input_df_all["TechMap"]
+tm = {}
+for k, g in tech_map.groupby('Technology'):
+    tm[k] = dict(zip(g['Technology Type'], g['Technology name']))
+
+#FuelPrice
+fuel_param = input_df_all["FuelPrice"].set_index('Fuel').T
+fuel = list(fuel_param.index)
+fuel_price = fuel_param.to_dict()
+
+#TechnologyData, TechnologyCapex, fom, vom
+tech_param = input_df_all["TechData"].set_index('Technology name').T.to_dict()
+tech_capex = input_df_all["TechCapex"]
+tech_fom = input_df_all["fom"]
+tech_vom = input_df_all["vom"]
+
 for key in tech_param:
-    if key in tech_capex:
-        tech_param[key]['capex'] = tech_capex[key]
-    else:
-        print(f"'{key}' does not have capex")
+    try:
+        tech_param[key]['capex'] = tech_capex[(tech_capex['Technology'] == tech_param[key]['Technology']) & (tech_capex['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][0]
+    except:
+        print(f"issue with '{key}', will not have capex")
         tech_param[key]['capex'] = 0
 
+    try:
+        tech_param[key]['fom'] = tech_fom[(tech_fom['Technology'] == tech_param[key]['Technology']) & (tech_fom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][0]
+    except:
+        print(f"issue with '{key}', will not have fom")
+        tech_param[key]['fom'] = 0
+
+    try:
+        tech_param[key]['vom'] = tech_vom[(tech_vom['Technology'] == tech_param[key]['Technology']) & (tech_vom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][0]
+    except:
+        print(f"'issue with '{key}', will not have vom")
+        tech_param[key]['vom'] = 0
+
 #TandDData
-td_param = input_df_all["TandDData"].set_index('tech').T.to_dict()
+#td_param = input_df_all["TandDData"].set_index('tech').T.to_dict()
+interconnection = input_df_all["Interconnection"]
 
-
-def custom_reader(sheetname = 'Demand'):
+def custom_reader(input, sheetname = 'Demand'):
     """
     Custom reader to read some excel sheets into dict
     :param sheetname: the sheet name to read
     :return: a dictionary in dictionary, with keys country and parameter
     """
     cols = []
-    for i in input_df_all[sheetname].columns:
+    for i in input[sheetname].columns:
         cols.append(i.split('.', 1)[0])
 
-    new_columns = list(zip(input_df_all[sheetname].loc[0], cols))
-    input_df_all[sheetname].columns = pd.MultiIndex.from_tuples(new_columns)
-    input_df = input_df_all[sheetname][1:]
+    new_columns = list(zip(input[sheetname].loc[0], cols))
+    input[sheetname].columns = pd.MultiIndex.from_tuples(new_columns)
+    input_new = input[sheetname][1:]
 
     dict_out = collections.defaultdict(dict)
-    for column in input_df:
-        dict_out[column[1]][column[0]] = list(input_df[column])
+    for column in input_new:
+        dict_out[column[1]][column[0]] = list(input_new[column])
+
+    return dict_out
+
+def custom_reader_2 (input, sheetname = 'Demand'):
+    """
+    Custom reader to read some excel sheets into dict
+    :param sheetname: the sheet name to read
+    :return: a dictionary of dictionary, with keys parameter
+    """
+    dict_out = input[sheetname].set_index(input[sheetname].columns[0]).to_dict('list')
 
     return dict_out
 
 
 #Demand
-demand_y = custom_reader('Demand')
+demand_y = custom_reader_2(input_df_p, 'Demand')
 
 #DemandProfile
-demand_ts = custom_reader('DemandProfile')
+demand_ts = custom_reader_2(input_df_p, 'DemandProfile')
 
 #REProfile
-re_ts = custom_reader('REProfile')
+re_ts = custom_reader_2(input_df_p, 'REProfile')
 
 #FuelPrice
-fuel_y = custom_reader('FuelPrice')
+fuel_y = custom_reader_2(input_df_all, 'FuelPrice')
+
+#TechCapacity
+#todo: read TechCapacity, create candidate technologies
+#todo: rename technology to add region name
+#todo: if no technology, then remove from list
+#todo: add renewable techs
 
 ##### MESSAGE #####
 
@@ -86,7 +141,7 @@ adb_s = f"adb: {case_name}\n"
 problem_s = f"problem: {case_name}\n"
 description_s = "description:\n"
 drate_s = f"drate: {drate * 100}\n"
-timesteps_s = f"timesteps: {' '.join(str(x) for x in list(range(year0, yearx+1)))}\n" #todo: change this to match years user specify
+timesteps_s = f"timesteps: {' '.join(str(x) for x in years)}\n" #todo: change this to match years user specify
 ts = []
 lengths = []
 
@@ -109,7 +164,7 @@ loadregions_s = (f"loadregions: \n"
 energyforms_fuel_s = ""
 fuel_c = {}
 counter = 11
-for key in fuel_y[country].keys():
+for key in fuel_y.keys():
     fuel_c[key] = ascii_lowercase[counter] #generate a dict which reads fuel
     counter += 1
     energyforms_fuel_s += (f"{key} {fuel_c[key]}\n"
@@ -142,8 +197,8 @@ energyforms_s = ("energyforms: \n"
                  f"{energyforms_fuel_s}"
                  "*\n")
 demand_s =       ("demand:\n"
-                 f"b-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y[country]['electricity']])}\n"
-                 f"c-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y[country]['heat']])}\n"
+                 f"b-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y['electricity']])}\n"
+                 f"c-a ts {' '.join([str(round(i*1000000/8760,3)) for i in demand_y['heat']])}\n"
                  "loadcurve:"
                  f"year {year0+1}\n"
                  f"b-a {' '.join(str(i) for i in lengths)}\n"
@@ -158,7 +213,7 @@ systems_fuel_s = "systems:\n"
 for key in fuel_c.keys():
     fuel_s = (   f"Fuel_{key} a\n"
                  f"    moutp	{fuel_c[key]}-j c 1\n"
-                 f"    vom	ts {' '.join(str(i) for i in fuel_y[country][key])}\n"
+                 f"    vom	ts {' '.join(str(i) for i in fuel_y[key])}\n"
                  "#\n" 
                  "*\n")
     systems_fuel_s += fuel_s
@@ -172,8 +227,8 @@ for key in tech_param:
                      f"    plf	c {tech_param[key]['availability']}\n"
                      f"    pll	c {tech_param[key]['lifetime']}\n"
                      f"    inv	ts {' '.join(str(i) for i in tech_param[key]['capex'])}\n"
-                     f"    fom	c {tech_param[key]['fom']}\n"
-                     f"    vom	c {tech_param[key]['vom']}\n"
+                     f"    fom	ts {' '.join(str(i) for i in tech_param[key]['fom'])}\n"
+                     f"    vom	ts {' '.join(str(i) for i in tech_param[key]['vom'])}\n"
                      f"    ctime	c {tech_param[key]['construction time']}\n"
                      "#\n" 
                      "*\n")
