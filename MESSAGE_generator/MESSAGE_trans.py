@@ -1,3 +1,4 @@
+#YL, IAEA, 2025 June
 import collections
 import pandas as pd
 import openpyxl
@@ -12,14 +13,18 @@ orig_name = 'CountryA'
 input_fd = 'E:/Work/benchmark/input/'
 input_fn = 'NW' #needs to be short
 province_fn = 'E:/Work/benchmark/input/runprovince.csv'
-create_reg = 1
+create_reg = 0
 MESSAGE_fd = "C:/Programs/MESSAGE_INT/"
 MESSAGE_root_fd = f"{MESSAGE_fd}models/"
+MESSAGE_bat_all_path = f"{MESSAGE_root_fd}/run_all_adb.bat"
 MESSAGE_mms_fils = f"{MESSAGE_root_fd}/mms_fils/"
 #dummy seasons only to represent days
 seasons = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November","December"]
 daysinseason = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 doyinquarter = {i:[(i*91)+45,(i*91)+46,(i*91)+47] for i in range(0,4)}
+solvers = ['HiGHS', 'cplex']
+bat_all_s = ""
+
 
 def strstrip(df, cols):
     """
@@ -59,6 +64,14 @@ def custom_reader_2 (input, sheetname = 'Demand'):
     dict_out = input[sheetname].set_index(input[sheetname].columns[0]).dropna(axis=1, how='all').to_dict('list')
 
     return dict_out
+
+def shift_profile(profi, gmt):
+    """
+    Shift profile by gmt hours to local time zone
+    """
+    profi_shifted = profi[-gmt:] + profi[:-gmt]
+
+    return profi_shifted
 
 
 province_list =[]
@@ -159,6 +172,9 @@ for province_long in province_list:
     #Demand
     demand_y = custom_reader_2(input_df_p, 'Demand')
     demand_y['heat'] = [0] * len(demand_y['electricity'])
+    #convert demand_y from 0.1GWh to MWy
+    for e in demand_y:
+        demand_y[e] = [i/ 8760 * 100 for i in demand_y[e]]
 
     #DemandProfile
     #reprocess demand profile
@@ -172,6 +188,8 @@ for province_long in province_list:
 
     #REProfile
     re_ts = custom_reader_2(input_df_p, 'REProfile')
+    for re_ in re_ts:
+        re_ts[re_] = shift_profile(re_ts[re_], 8)
     #remove profiles which have no values
 
 
@@ -503,6 +521,7 @@ for province_long in province_list:
                         )
     ldr_string = ldr_loadregions_s + ldr_season_s + ldr_loadcurves_s + ldr_loadcurve_systems_s
 
+    #.cin file
 
 
     #.gen file
@@ -557,30 +576,51 @@ for province_long in province_list:
     shutil.copytree(output_fd, MESSAGE_mod_fd, dirs_exist_ok=True)
 
     # Create batch file
-    MESSAGE_bat_path = f"{MESSAGE_mod_fd}/run_HiGHS_{case_name}_adb.bat"
-    bat_s = (f'set MMS_HOME={MESSAGE_root_fd} \n'
-                f'set MSG_HOME={MESSAGE_root_fd} \n'
-                f'set MMS_PRO={MESSAGE_mms_fils}mms.pro \n'
-                f'set MSG_ROOT={MESSAGE_fd} \n'
-                f'set MSG_BIN={MESSAGE_fd}message_bin \n'
-                f'set LANGUAGE=english \n'
-                f'set USER=unknown \n'
-                f'set LS_COLORS= \n'
-                f'C: \n'
-                f'cd {MESSAGE_root_fd}{case_name} \n'
-                f'del {case_name}_adb.* \n'
-                f'del {case_name}_adb_lin.sol \n'
-                f'cd {MESSAGE_root_fd}{case_name} \n'
-                f'{MESSAGE_fd}\\tcsh -c "{MESSAGE_fd}message_bin/mxg -f mxgerr -o cplex -v -n nbd -s adb   -x intm/powerchs.mps -W IAEA   {case_name}" \n'
-                f'cd {MESSAGE_root_fd}{case_name}\intm \n'
-                f'{MESSAGE_fd}message_bin/tcsh -c "{MESSAGE_fd}message_bin/highs --options_file={MESSAGE_fd}message_bin/highs_settings.txt {case_name}_adb.mps --solution_file {case_name}_adb_lin.sol | {MESSAGE_fd}message_bin/tee {case_name}_adb.itl" \n'
-                f'cd {MESSAGE_root_fd}{case_name} \n'
-                f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/sol2dbm -s {case_name}_adb -o glpk  {case_name}" \n'
-                f'copy sdbvars.txt sdbvars_{case_name}_adb.txt \n'
-                f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/cap -s {case_name}_adb -c {case_name} -t {case_name}  -T \'{case_name}, {case_name}_adb\'  -g spr -o {case_name}_adb -p \'MESSAGE Int_V2\'  {case_name}" \n'
-                f'pause \n')
-    with open(MESSAGE_bat_path,'w') as file:
-        file.write(bat_s)
+
+
+    for sol in solvers:
+        if sol == 'cplex':
+            sol_s = (f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/csol -v -s adb {case_name}_adb | {MESSAGE_fd}message_bin/tee {case_name}_adb.itl" \n'
+                     f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/sol2dbm -s adb -o cplex  {case_name}" \n')
+
+        elif sol == 'HiGHS':
+            sol_s = (f'cd {MESSAGE_root_fd}{case_name}\\intm \n'
+                     f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/highs --options_file={MESSAGE_fd}message_bin/highs_settings.txt {case_name}_adb.mps --solution_file {case_name}_adb_lin.sol | {MESSAGE_fd}message_bin/tee {case_name}_adb.itl" \n'
+                     f'cd {MESSAGE_root_fd}{case_name} \n'
+                     f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/sol2dbm -s adb -o glpk  {case_name}" \n'
+                     )
+
+        MESSAGE_bat_path = f"{MESSAGE_mod_fd}/run_{sol}_{case_name}_adb.bat"
+
+        if sol == 'cplex':
+            # currently bat all only runs cplex
+            bat_all_s += (f'cd {MESSAGE_root_fd}{case_name} \n'
+                          f'start {MESSAGE_bat_path}\n'
+                          )
+
+        bat_s = (f'set MMS_HOME={MESSAGE_root_fd}\n'
+                    f'set MSG_HOME={MESSAGE_root_fd}\n'
+                    f'set MMS_PRO={MESSAGE_mms_fils}mms.pro\n'
+                    f'set MSG_ROOT={MESSAGE_fd}\n'
+                    f'set MSG_BIN={MESSAGE_fd}message_bin\n'
+                    f'set LANGUAGE=english \n'
+                    f'set USER=unknown \n'
+                    f'set LS_COLORS= \n'
+                    f'C: \n'
+                    f'cd {MESSAGE_root_fd}{case_name}/intm\n'
+                    f'del {case_name}_adb.* \n'
+                    f'del {case_name}_adb_lin.sol \n'
+                    f'cd {MESSAGE_root_fd}{case_name} \n'
+                    f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/mxg -f mxgerr -o cplex -v -n nbd -s adb   -x intm/powerchs.mps -W IAEA   {case_name}" \n'
+                    f'{sol_s} \n'
+                    f'copy sdbvars.txt sdbvars_{case_name}_adb.txt \n'
+                    f'{MESSAGE_fd}message_bin\\tcsh -c "{MESSAGE_fd}message_bin/cap -s adb -c {case_name} -t {case_name}  -T \'{case_name}, adb\'  -g spr -o {case_name}_adb -p \'MESSAGE Int_V2\'  {case_name}" \n'
+                    f'pause \n')
+        with open(MESSAGE_bat_path,'w') as file:
+            file.write(bat_s)
+
+    with open(MESSAGE_bat_all_path, 'w') as file:
+        file.write(bat_all_s)
 
     #Only use the following if creating model for the first time
     if create_reg == 1:
@@ -604,7 +644,6 @@ for province_long in province_list:
         dir_f = f"{MESSAGE_mms_fils}{case_name}.dir"
         with open(dir_f, "w") as f3:
             f3.write(dir_s)
-
 
 
 #todo: essential files to change: ldr, ldb, adb, dic, chkunits, chn
