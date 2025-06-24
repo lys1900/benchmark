@@ -582,7 +582,7 @@ for cid, c in enumerate(cases_all):
                       "#\n"
                       "*\n")
 
-            ldb_tech_s = (f"{line['line_name']} a\n"  # @
+            ldb_tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"  # @
                           "*\n")
 
             systems_pp_s += tech_s
@@ -794,7 +794,7 @@ for cid, c in enumerate(cases_all):
             case_path = f'{main_name}/{case_name}'
         else:
             case_path = case_name
-    create_reg_func(MESSAGE_mms_fils, case_name, generate_main, mn=main_name)
+        create_reg_func(MESSAGE_mms_fils, case_name, generate_main, mn=main_name)
 
 #todo: essential files to change: ldr, ldb, adb, dic, chkunits, chn
 
