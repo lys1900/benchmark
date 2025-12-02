@@ -12,16 +12,16 @@ import csv
 import numpy as np
 
 orig_name = 'CountryA'
-input_fd = 'E:/Work/benchmark/input/'
+input_fd = 'E:/Work/benchmark/input_China/'
 input_fn = 'NW'  #needs to be short
-province_fn = 'E:/Work/benchmark/input/runprovince.csv'
-create_reg = 1 #switch this on if creating regions for the first time to write paths into registry. Switch off for subsequent runs
+province_fn = 'E:/Work/benchmark/input_China/runprovince.csv'
+create_reg = 0 #switch this on if creating regions for the first time to write paths into registry. Switch off for subsequent runs
 MESSAGE_fd = "C:/Programs/MESSAGE_INT/"
 generate_main = 1  #if running multiregional model
-main_name = "TMult"
+main_name = "ChinaMult"
 output_base_fd = 'E:/Work/benchmark/MESSAGE_generator/MESSAGE_out/'
-#MESSAGE_root_fd = "E:/Work/China_MESSAGE/temp/"
-MESSAGE_root_fd = f"{MESSAGE_fd}models/"
+MESSAGE_root_fd = "E:/Work/China_MESSAGE/temp/"
+#MESSAGE_root_fd = f"{MESSAGE_fd}models/"
 if generate_main == 1:
     MESSAGE_main_fd = f"{MESSAGE_root_fd}/{main_name}/"
 MESSAGE_bat_all_path = f"{MESSAGE_root_fd}/run_all_adb.bat"
@@ -32,6 +32,7 @@ daysinseason = [91, 91, 91, 92]
 doyinquarter = {i: [(i * 90) + 85] for i in range(0, 4)}
 solvers = ['HiGHS', 'cplex']
 bat_all_s = ""
+rampdir = {'u':1, 'd':-1}
 
 
 def strstrip(df, cols):
@@ -88,7 +89,7 @@ def shift_profile(profi, gmt):
 
 def create_reg_func(MESSAGE_mms_fils, case_name, hasmain, mn=""):
     if hasmain == 1:
-        case_path = f'{main_name}/{case_name}'
+        case_path = f'{mn}/{case_name}'
     else:
         case_path = case_name
 
@@ -103,8 +104,8 @@ def create_reg_func(MESSAGE_mms_fils, case_name, hasmain, mn=""):
              f"gen                $MMS_HOME/{case_path}/data \n"
              f"data               $MMS_HOME/{case_path}/data \n"
              )
-    if hasmain == 1:
-        dir_s += f"regid	$MMS_HOME/{main_name}/{main_name}/regid \n"
+    if hasmain == 1 and case_name == mn:
+        dir_s += f"regid	$MMS_HOME/{mn}/{mn}/regid \n"
     # Add line to mms.pro
     with open(f"{MESSAGE_mms_fils}mms.pro", "a") as f1:
         f1.write(f"{case_name}.dirfile   $MMS_HOME/mms_fils/{case_name}.dir\n")
@@ -153,6 +154,19 @@ years_intervalsafterprev[year0] = 1
 years_inyearscontinuous = {years[i]: [j for j in years_continuous if j <= years[i] and j > years[i - 1]] for i in
                            range(1, len(years))}
 years_inyearscontinuous[year0] = [year0]
+years_incl_by = [baseyear] + years
+
+#Time slices
+ts = []
+lengths = []
+
+ts_count = days_year * timesteps_day
+ts_length = round(1 / ts_count, 6)
+
+for i in ascii_lowercase[0:days_year]:
+    for j in ascii_lowercase[0:timesteps_day]:
+        ts.append(f"{i}a{j}")
+        lengths.append(ts_length)
 
 #Emissions
 emissions = input_df_all["Emissions"].set_index('years')
@@ -272,6 +286,8 @@ else:
 regid_counter = 0
 hist_tab = {} #historic capacity table
 lt_tab = {} #life time table
+cin_profile_str = "" #make a string for writing out profiles, which will be added to the cin file
+
 for cid, c in enumerate(cases_all):
 
     if c in province_list:
@@ -493,7 +509,11 @@ for cid, c in enumerate(cases_all):
         ldb_systems_pp_s = ""
         ldr_loadcurve_systems_s = ""
 
+        ppcount = 0
+        relations1_ramp_s = ""
+        ldb_relations1_ramp_s = ""
         for pp in tech_p_dict:
+
             val = tech_p_dict[pp]
             tp_key = val['mapname']
             hist_tab[pp] = val['existing']
@@ -537,7 +557,34 @@ for cid, c in enumerate(cases_all):
                 hist_s = ""
                 bdc_s = ""
 
+            #create ramp constraints here
+            ramp_s = ""
             con1c_s = ""
+            con1a_s = ""
+
+            if tech_param[tp_key]['type'] == "PP" and tech_param[tp_key]['ramprate']>0:
+                for id, t in enumerate(ts[:-1]): #for each time slice until second last timeslice
+                    for rd in rampdir: #for each direction
+                        # create ramp constraint names
+                        rampname = f"{ascii_all[ppcount]}{id}{rd}"
+                        relations1_ramp_s += (f"\n"
+                                         f"{rampname} {rampname[:4]} o\n"
+                                         f"    units  group: activity, type: energy, cost:US$'00/kWyr, upper:MWyr, lower:MWyr\n"
+                                         f"    for_ldr	none\n"
+                                         f"    upper	c 0\n"
+                                         f"    type	None\n"
+                                         f"*"
+                                         )
+                        con1c_s += f"    con1c {rampname[:4]}:tin	c {tech_param[tp_key]['ramprate'] * -1}\n"
+                        con1a_s += f"    con1a {rampname[:4]}:{ts[id]}	c {rampdir[rd]*-1*(24*4)}\n"
+                        con1a_s += f"    con1a {rampname[:4]}:{ts[id+1]}	c {rampdir[rd]*(24*4)}\n"
+                        ldb_relations1_ramp_s += ("\n"
+                            f"{rampname} {rampname[:4]} o\n"
+                            "*"
+                            )
+
+
+
             for con in constraints_types['con1c']:
                 if tech_param[tp_key]['constraints'][con] == 1 and constraints_properties[con]['except'] != c:
                     con1c_ldr_s = ''
@@ -550,9 +597,13 @@ for cid, c in enumerate(cases_all):
                 if tech_param[tp_key]['type'] == "PP":
                     minp_s = f"    minp	{fuel_c[tech_param[tp_key]['fuel']]}-j 1.\n"
                     moutp_lvl = "g-f"
+                    for n_ts, ts_ in enumerate(ts):
+                        cin_profile_str += f"{n_ts}_{pp} =    f{fuel_c[tech_param[tp_key]['fuel']]}{val['activity']}g....{ascii_all[regid_counter-1]}.{ts_}:out\n"
                 elif tech_param[tp_key]['type'] == "RE":
                     minp_s = ""  #if RE, then no input fuel
                     moutp_lvl = "h-f"
+                    for n_ts, ts_ in enumerate(ts):
+                        cin_profile_str += f"{n_ts}_{pp} =    f.{val['activity']}h....{ascii_all[regid_counter-1]}.{ts_}:out\n"
                     try:
                         capfac_list = [j for i in val['capfac'].values() for j in i]
                         loadcurve_systems_s += (
@@ -579,6 +630,7 @@ for cid, c in enumerate(cases_all):
                           f"    ctime	c {tech_param[tp_key]['construction time']}\n"
                           f"{bdc_s}"
                           f"{con1c_s}"
+                          f"{con1a_s}"
                           f"    con1a CO2L	c {tech_param[tp_key]['emissionfactor']}\n"
                           "#\n"
                           "*\n")
@@ -589,10 +641,12 @@ for cid, c in enumerate(cases_all):
                 systems_pp_s += tech_s
                 ldb_systems_pp_s += ldb_tech_s
 
+            ppcount += 1
+
         #todo: fix string below to be populated programmatically
         systems_trans_s = (f"{province}_Transmission_ElectricityNonVRE a\n"  #@
                            "    minp	g-f 1.\n"
-                           "    moutp	e-d c 0.98\n"
+                           "    moutp	e-d c 0.97\n"
                            "    inv	c 1000.0\n"
                            "    fom	c 10.0\n"
                            "    vom	c 8.76\n"
@@ -600,7 +654,7 @@ for cid, c in enumerate(cases_all):
                            "*\n"
                            f"{province}_Transmission_ElectricityVRE b\n"
                            "    minp	h-f 1.\n"
-                           "    moutp	e-d c 0.98\n"
+                           "    moutp	e-d c 0.97\n"
                            "    inv	c 1100.0\n"
                            "    fom	c 10.0\n"
                            "    vom	c 8.76\n"
@@ -652,9 +706,12 @@ for cid, c in enumerate(cases_all):
                             f"{ldr_loadcurve_season_s['heat']}"
                             )
         relationsp_s = ""
-        ldb_relationsp_s = ""
-        relations1_s = ""
-        ldb_relations1_s = ""
+        ldb_relationsp_s = ldb_relations1_ramp_s
+        relations1_s = relations1_ramp_s
+        ldb_relations1_s = ("\n"
+                            "CO2Limit CO2L o\n"
+                            "*"
+                            )
 
     else:  #else if not province, so is main
         case_name = main_name
@@ -690,7 +747,7 @@ for cid, c in enumerate(cases_all):
         for id, line in interconnection_main.iterrows():
             tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"
                       f"    minp  e-d-{line['from']}_{input_fn} 1.\n"
-                      f"    moutp e-d-{line['to']}_{input_fn} c 0.98\n"  #efficiency of 0.98
+                      f"    moutp e-d-{line['to']}_{input_fn} c 0.97\n"  #efficiency of 0.98
                       "    pll	c 40\n"
                       "    inv	c 1000.0\n"
                       "    fom	c 10.0\n"
@@ -748,18 +805,7 @@ for cid, c in enumerate(cases_all):
     problem_s = f"problem: {case_name}\n"
     description_s = "description:\n"
     drate_s = f"drate: {drate * 100}\n"
-    years_incl_by = [baseyear] + years
     timesteps_s = f"timesteps: {' '.join(str(x) for x in years_incl_by)}\n"  # todo: change this to match years user specify
-    ts = []
-    lengths = []
-
-    ts_count = days_year * timesteps_day
-    ts_length = round(1 / ts_count, 6)
-
-    for i in ascii_lowercase[0:days_year]:
-        for j in ascii_lowercase[0:timesteps_day]:
-            ts.append(f"{i}a{j}")
-            lengths.append(ts_length)
 
     loadregions_s = (f"loadregions: \n"
                      f"ltype  ordered seasonal 1 0 \n"
@@ -934,6 +980,10 @@ for cid, c in enumerate(cases_all):
         else:
             case_path = case_name
         create_reg_func(MESSAGE_mms_fils, case_name, generate_main, mn=main_name)
+
+#write out cin profile in text file
+with open(f"{MESSAGE_root_fd}/{main_name}/{main_name}/cin_profile_str.txt", "w") as file:
+    file.write(cin_profile_str)
 
 #todo: essential files to change: ldr, ldb, adb, dic, chkunits, chn
 
