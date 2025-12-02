@@ -12,15 +12,15 @@ import csv
 import numpy as np
 
 orig_name = 'CountryA'
-input_fd = 'E:/Work/benchmark/input_China/'
+input_fd = 'C:/Users/joowo/Documents/codes/benchmark/input_SK/'
 input_fn = 'NW'  #needs to be short
-province_fn = 'E:/Work/benchmark/input_China/runprovince.csv'
+province_fn = 'C:/Users/joowo/Documents/codes/benchmark/input_SK/runprovince.csv'
 create_reg = 0 #switch this on if creating regions for the first time to write paths into registry. Switch off for subsequent runs
 MESSAGE_fd = "C:/Programs/MESSAGE_INT/"
 generate_main = 1  #if running multiregional model
-main_name = "ChinaMult"
-output_base_fd = 'E:/Work/benchmark/MESSAGE_generator/MESSAGE_out/'
-MESSAGE_root_fd = "E:/Work/China_MESSAGE/temp/"
+main_name = "SKoreaMult"
+output_base_fd = 'C:/Users/joowo/Documents/codes/benchmark/MESSAGE_generator/MESSAGE_out/'
+MESSAGE_root_fd = "C:/Dropbox/Dropbox/2025 South Korea Study/Korea_MESSAGE/temp/"
 #MESSAGE_root_fd = f"{MESSAGE_fd}models/"
 if generate_main == 1:
     MESSAGE_main_fd = f"{MESSAGE_root_fd}/{main_name}/"
@@ -231,7 +231,7 @@ for key in tech_param:
             'records')[0]
     except:
         print(f"'issue with '{key}', will not have constraints")
-        tech_param[key]['constraints'] = 0
+        tech_param[key]['constraints'] = {}
 
 #TandDData
 #td_param = input_df_all["TandDData"].set_index('tech').T.to_dict()
@@ -586,7 +586,7 @@ for cid, c in enumerate(cases_all):
 
 
             for con in constraints_types['con1c']:
-                if tech_param[tp_key]['constraints'][con] == 1 and constraints_properties[con]['except'] != c:
+                if tech_param[tp_key]['constraints'].get(con,0) == 1 and constraints_properties[con]['except'] != c:
                     con1c_ldr_s = ''
                     if not (isinstance(constraints_properties[con]['ldr'], float) and math.isnan(constraints_properties[con]['ldr'])):
                         con1c_ldr_s += f':{constraints_properties[con]['ldr']}'
@@ -882,7 +882,7 @@ for cid, c in enumerate(cases_all):
     os.makedirs(output_fd)
 
     # Copy all files over from orig folder to new folder
-    orig_base_fd = f'E:/Work/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'
+    orig_base_fd = f'C:/Users/joowo/Documents/codes/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'
     shutil.copytree(orig_base_fd, output_fd, dirs_exist_ok=True)
 
     # Replace all file names with new case name
