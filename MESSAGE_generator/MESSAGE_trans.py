@@ -12,14 +12,14 @@ import csv
 import numpy as np
 
 orig_name = 'CountryA'
-input_fd = 'C:/Users/joowo/Documents/codes/benchmark/input_SK/'
+input_fd = 'C:/Dropbox/Dropbox/2025 South Korea Study/03 Data/input/'
 input_fn = 'NW'  #needs to be short
-province_fn = 'C:/Users/joowo/Documents/codes/benchmark/input_SK/runprovince.csv'
+province_fn = 'C:/Dropbox/Dropbox/2025 South Korea Study/03 Data/input//runprovince.csv'
 create_reg = 0 #switch this on if creating regions for the first time to write paths into registry. Switch off for subsequent runs
 MESSAGE_fd = "C:/Programs/MESSAGE_INT/"
 generate_main = 1  #if running multiregional model
-main_name = "SKoreaMult"
-output_base_fd = 'C:/Users/joowo/Documents/codes/benchmark/MESSAGE_generator/MESSAGE_out/'
+main_name = "SKoreaMult2"
+output_base_fd = 'C:/Users/iaea-user/Documents/Work/benchmark/MESSAGE_generator/MESSAGE_out/'
 MESSAGE_root_fd = "C:/Dropbox/Dropbox/2025 South Korea Study/Korea_MESSAGE/temp/"
 #MESSAGE_root_fd = f"{MESSAGE_fd}models/"
 if generate_main == 1:
@@ -180,10 +180,13 @@ constraints_types = input_df_all["ConstraintsTypes"].groupby('type')['constraint
 constraints_properties = input_df_all["ConstraintsTypes"].set_index('constraint').to_dict('index')
 #TechMap
 tech_map = input_df_all["TechMap"]
+tech_map = tech_map[tech_map['Switch'] == 1] #only read technologies which are switched on
 tech_map = strstrip(tech_map, ['Technology name', 'Technology', 'Technology Type'])
 tm = {}
 for k, g in tech_map.groupby('Technology'):
-    tm[k] = dict(zip(g['Technology Type'], g['Technology name']))
+    tm[k] = (
+        g.groupby('Technology Type')['Technology name'].apply(list).to_dict()
+    )
 
 #FuelPrice
 #fuel_param = input_df_all["FuelPrice"].set_index('Fuel').T
@@ -340,15 +343,17 @@ for cid, c in enumerate(cases_all):
 
         #TechCapacity
         #todo: read TechCapacity, create candidate technologies
-        tech_p = strstrip(input_df_p['TechCapacity'], ['Technology', 'Technology Type'])  #technology in province
+        # if technology is switched off, then skip technology
+        tech_p = strstrip(input_df_p['TechCapacity'], ['Technology name', 'Technology', 'Technology Type'])  #technology in province
         tech_p = tech_p[tech_p['Technology Type'] != 'unknown']
+        tech_p = tech_p[tech_p['Technology name'].isin(tech for tech_dict in tm.values() for tech_list in tech_dict.values() for tech in tech_list)]
         try:
             tech_p = tech_p.dropna(axis=0, subset=['capacity addition'])
         except:
             tech_p = tech_p.dropna(axis=0, subset=['sum of capacity'])
 
         dict_status = {'existing': 'Exist', 'exogenous': 'Constr', 'endogenous': 'Plan', 'generic': 'Endo'}
-        tech_p['mapname'] = [tm[i][j] for i, j in zip(tech_p['Technology'], tech_p['Technology Type'])]
+        tech_p['mapname'] = tech_p['Technology name']
         tech_p['messagename'] = province + '_' + tech_p['mapname'] + '_' + tech_p['status'].replace(dict_status)
 
         tech_p_dict = {}
@@ -584,13 +589,13 @@ for cid, c in enumerate(cases_all):
                             )
 
 
-
-            for con in constraints_types['con1c']:
-                if tech_param[tp_key]['constraints'].get(con,0) == 1 and constraints_properties[con]['except'] != c:
-                    con1c_ldr_s = ''
-                    if not (isinstance(constraints_properties[con]['ldr'], float) and math.isnan(constraints_properties[con]['ldr'])):
-                        con1c_ldr_s += f':{constraints_properties[con]['ldr']}'
-                    con1c_s += f"    con1c {con[:4]}{con1c_ldr_s}	c 1\n"
+            if 'con1c' in constraints_types:
+                for con in constraints_types['con1c']:
+                    if tech_param[tp_key]['constraints'].get(con,0) == 1 and constraints_properties[con]['except'] != c:
+                        con1c_ldr_s = ''
+                        if not (isinstance(constraints_properties[con]['ldr'], float) and math.isnan(constraints_properties[con]['ldr'])):
+                            con1c_ldr_s += f':{constraints_properties[con]['ldr']}'
+                        con1c_s += f"    con1c {con[:4]}{con1c_ldr_s}	c 1\n"
 
             if tech_param[tp_key]['type'] in ["PP", "RE"]:
 
@@ -882,7 +887,7 @@ for cid, c in enumerate(cases_all):
     os.makedirs(output_fd)
 
     # Copy all files over from orig folder to new folder
-    orig_base_fd = f'C:/Users/joowo/Documents/codes/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'
+    orig_base_fd = f'C:/Users/iaea-user/Documents/Work/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'
     shutil.copytree(orig_base_fd, output_fd, dirs_exist_ok=True)
 
     # Replace all file names with new case name
