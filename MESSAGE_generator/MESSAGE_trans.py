@@ -197,32 +197,29 @@ for k, g in tech_map.groupby('Technology'):
 
 tech_param = strstrip(input_df_all["TechData"], ['Technology name', 'Technology', 'Technology Type']).set_index(
     'Technology name').T.to_dict()
-tech_capex = strstrip(input_df_all["TechCapex"], ['Technology', 'Technology Type'])
-tech_fom = strstrip(input_df_all["fom"], ['Technology', 'Technology Type'])
-tech_vom = strstrip(input_df_all["vom"], ['Technology', 'Technology Type'])
-tech_constraints = strstrip(input_df_all["TechConstraints"], ['Technology', 'Technology Type'])
+tech_capex = strstrip(input_df_all["TechCapex"], ['Technology name','Technology', 'Technology Type'])
+tech_fom = strstrip(input_df_all["fom"], ['Technology name', 'Technology', 'Technology Type'])
+tech_vom = strstrip(input_df_all["vom"], ['Technology name','Technology', 'Technology Type'])
+tech_constraints = strstrip(input_df_all["TechConstraints"], ['Technology name','Technology', 'Technology Type'])
 
 for key in tech_param:
     try:
-        tech_param[key]['capex'] = tech_capex[(tech_capex['Technology'] == tech_param[key]['Technology']) & (
-                    tech_capex['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')[
+        tech_param[key]['capex'] = tech_capex[(tech_capex['Technology name'] == key)][years].to_dict('tight')[
             'data'][0]
     except:
         print(f"issue with '{key}', will not have capex")
         tech_param[key]['capex'] = 0
 
     try:
-        tech_param[key]['fom'] = tech_fom[(tech_fom['Technology'] == tech_param[key]['Technology']) & (
-                    tech_fom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][
-            0]
+        tech_param[key]['fom'] = tech_fom[(tech_fom['Technology name'] == key)][years].to_dict('tight')[
+            'data'][0]
     except:
         print(f"issue with '{key}', will not have fom")
         tech_param[key]['fom'] = 0
 
     try:
-        tech_param[key]['vom'] = tech_vom[(tech_vom['Technology'] == tech_param[key]['Technology']) & (
-                    tech_vom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][
-            0]
+        tech_param[key]['vom'] = tech_vom[(tech_vom['Technology name'] == key)][years].to_dict('tight')[
+            'data'][0]
     except:
         print(f"'issue with '{key}', will not have vom")
         tech_param[key]['vom'] = 0
@@ -238,22 +235,31 @@ for key in tech_param:
 
 #TandDData
 #td_param = input_df_all["TandDData"].set_index('tech').T.to_dict()
-interconnection = input_df_all["Interconnection"]
-interconnection_long = pd.melt(interconnection, id_vars=interconnection.columns[0],
-                               value_vars=interconnection.columns[1:])
-interconnection_long = interconnection_long.rename(columns={'from-to': 'from', 'variable': 'to'})
-interconnection_long = interconnection_long.dropna(subset=['value'])
-interconnection_long = interconnection_long[interconnection_long['value'] != 0]
-interconnection_long['line_name'] = interconnection_long['from'] + '_' + interconnection_long['to']
+interconnection_long = input_df_all["Interconnection"]
+#interconnection_long = pd.melt(interconnection, id_vars=interconnection.columns[0],
+#                               value_vars=interconnection.columns[1:])
+#interconnection_long = interconnection_long.rename(columns={'from-to': 'from', 'variable': 'to'})
+#interconnection_long = interconnection_long.dropna(subset=['value'])
+interconnection_long = interconnection_long[interconnection_long['capacity'] != 0]
+interconnection_long['line_name'] = interconnection_long['status'] + '_' + interconnection_long['from'] + '_' + interconnection_long['to']
 interconnection_main = interconnection_long[
     interconnection_long['from'].isin(province_list) & interconnection_long['to'].isin(province_list)]
+interconnection_dict = interconnection_main.groupby("line_name").agg(lambda x: list(x) if x.name in ['year','capacity'] else x.iloc[0]).to_dict(orient='index')
+for k, v in interconnection_dict.items():
+    interconnection_dict[k] = {
+        key: val for key, val in v.items()
+        if key not in ("year", "capacity")
+    }
+    interconnection_dict[k]["year_capacity"] = dict(zip(v["year"], v["capacity"]))
 #FuelPrice
 fuel_y = custom_reader_2(input_df_all, 'FuelPrice', years)
 #GenericsTech
 generics = input_df_all["generics"].set_index('region').fillna(0)
 generics = generics[generics.index.isin(province_list)]
+#generics = generics[tech_map['Switch'] == 1] #only those technologies which are switched on
 generics_dict = generics.to_dict('index')
 generics_dict_ = dict(generics_dict.items())
+
 
 # Create a copy of the dictionary to iterate over
 generics_dict_copy = {p_: dict(pt) for p_, pt in generics_dict_.items()}
@@ -749,19 +755,36 @@ for cid, c in enumerate(cases_all):
         systems_pp_s = ""
         ldb_systems_pp_s = ''
         counter_line = 0
-        for id, line in interconnection_main.iterrows():
-            tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"
+
+        for line_name, line in interconnection_dict.items():
+            if line['status'] == 'existing':
+                hist_s = f"    hisc 0. hc {list(line['year_capacity'].keys())[0]} {list(line['year_capacity'].values())[0]}\n"
+                bdc_s = ""
+
+            elif line['status'] == 'exogenous':
+                hist_s = ""
+                bdc = []
+                for year in years:
+                    bdc_val = 0
+                    for y in years_inyearscontinuous[year]:
+                        bdc_val += (line['year_capacity'].get(y, 0)) / years_intervalsafterprev[
+                            year]
+                    bdc.append(bdc_val)
+                bdc_s = f"    bdc fx ts {' '.join(str(v) for v in bdc)}\n"
+
+            tech_s = (f"{line_name} {ascii_all[counter_line]}\n"
                       f"    minp  e-d-{line['from']}_{input_fn} 1.\n"
-                      f"    moutp e-d-{line['to']}_{input_fn} c 0.97\n"  #efficiency of 0.98
-                      "    pll	c 40\n"
-                      "    inv	c 1000.0\n"
+                      f"    moutp e-d-{line['to']}_{input_fn} c 0.97\n"  #efficiency of 0.97
+                      f"    pll	c {line['lifetime']}\n"
+                      "    inv	c 1000.0\n" #todo: get actual investment, fom and vom cost
                       "    fom	c 10.0\n"
                       "    vom	c 8.76\n"
-                      f"    hisc 0. hc 2010 {line['value']}\n"
+                      f"{hist_s}"
+                      f"{bdc_s}"
                       "#\n"
                       "*\n")
 
-            ldb_tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"  # @
+            ldb_tech_s = (f"{line_name} {ascii_all[counter_line]}\n"  # @
                           "*\n")
 
             systems_pp_s += tech_s
