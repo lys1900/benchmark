@@ -12,6 +12,8 @@ import csv
 import numpy as np
 
 orig_name = 'CountryA'
+orig_base_fd = f'E:/Work/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'  #reference case copied to seed every case
+grf_fd = "/tmp/grf/iaea"  #graphics folder written into the .dir files
 input_fd = 'E:/Work/benchmark/input_China/'
 input_fn = 'NW'  #needs to be short
 province_fn = 'E:/Work/benchmark/input_China/runprovince.csv'
@@ -26,10 +28,12 @@ if generate_main == 1:
     MESSAGE_main_fd = f"{MESSAGE_root_fd}/{main_name}/"
 MESSAGE_bat_all_path = f"{MESSAGE_root_fd}/run_all_adb.bat"
 MESSAGE_mms_fils = f"{MESSAGE_root_fd}/mms_fils/"
+main_case_fd = f"{MESSAGE_root_fd}/{main_name}/{main_name}"  #folder of the main case itself
 #dummy seasons only to represent days
 seasons = ["Season1", "Season2", "Season3", "Season4"]
 daysinseason = [91, 91, 91, 92]
 doyinquarter = {i: [(i * 90) + 85] for i in range(0, 4)}
+hours_year = [i for i in range(1, 8761)]  #hour numbers used to select the profile rows
 solvers = ['HiGHS', 'cplex']
 bat_all_s = ""
 rampdir = {'u':1, 'd':-1}
@@ -43,6 +47,32 @@ def strstrip(df, cols):
     for c in cols:
         df[c] = df[c].str.lower()
     return df
+
+
+def numstr(v):
+    """
+    write a number without a trailing .0 when it is whole, so an efficiency of
+    1 stays "1" and a lifetime of 40 stays "40"
+    """
+    v = float(v)
+    return str(int(v)) if v.is_integer() else str(v)
+
+
+def read_workbook(path):
+    """
+    read every sheet of an excel file into a dict of dataframes
+    """
+    xl = pd.ExcelFile(path)
+
+    return {sheetname: xl.parse(sheetname) for sheetname in xl.sheet_names}
+
+
+def ldb_stub(name, activity):
+    """
+    the .ldb only needs the name and activity letter of each technology
+    """
+    return (f"{name} {activity}\n"
+            "*\n")
 
 
 def custom_reader(input, sheetname='Demand'):
@@ -87,6 +117,14 @@ def shift_profile(profi, gmt):
     return profi_shifted
 
 
+def sample_days(profi, hoyinday):
+    """
+    take the hours of each representative day out of an 8760 hour profile
+    :return: a dictionary of day of year, with the hours of that day
+    """
+    return {day: [profi[i] for i in hours] for day, hours in hoyinday.items()}
+
+
 def create_reg_func(MESSAGE_mms_fils, case_name, hasmain, mn=""):
     if hasmain == 1:
         case_path = f'{mn}/{case_name}'
@@ -95,7 +133,7 @@ def create_reg_func(MESSAGE_mms_fils, case_name, hasmain, mn=""):
 
     dir_s = (f"#call              answer\n"
              f"supply             $MMS_HOME/{case_path}      \n"
-             f"grfdir             /tmp/grf/iaea           \n"
+             f"grfdir             {grf_fd}           \n"
              f"cin                $MMS_HOME/{case_path}/data \n"
              f"tdb                $MMS_HOME/tdb           \n"
              f"adb                $MMS_HOME/{case_path}/data \n"
@@ -131,20 +169,15 @@ for i, j in doyinquarter.items():
 
 # Nationwide
 input_fp = f'{input_fd}{input_fn}.xlsx'
-input_xl = pd.ExcelFile(input_fp)
-input_sh = input_xl.sheet_names
-
-input_df_all = {}
-for i in input_sh:
-    input_df_all[i] = input_xl.parse(i)
+input_df_all = read_workbook(input_fp)
 
 # Read all parameters
 #General
-drate = input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "Discount rate", "Value"].item()
-days_year = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "Days per year", "Value"].item())
-timesteps_day = int(
-    input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "Timesteps per day", "Value"].item())
-year0 = int(input_df_all["General"].loc[input_df_all["General"]["Parameter"] == "First year", "Value"].item())
+general = input_df_all["General"].set_index('Parameter')['Value'].to_dict()
+drate = general["Discount rate"]
+days_year = int(general["Days per year"])
+timesteps_day = int(general["Timesteps per day"])
+year0 = int(general["First year"])
 years = list(input_df_all["Years"]['years'])
 baseyear = year0 - 1
 yearx = years[-1]
@@ -199,30 +232,18 @@ tech_fom = strstrip(input_df_all["fom"], ['Technology', 'Technology Type'])
 tech_vom = strstrip(input_df_all["vom"], ['Technology', 'Technology Type'])
 tech_constraints = strstrip(input_df_all["TechConstraints"], ['Technology', 'Technology Type'])
 
+#cost sheets which all have one row per technology and one column per year
+tech_cost_sheets = {'capex': tech_capex, 'fom': tech_fom, 'vom': tech_vom}
+
 for key in tech_param:
-    try:
-        tech_param[key]['capex'] = tech_capex[(tech_capex['Technology'] == tech_param[key]['Technology']) & (
-                    tech_capex['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')[
-            'data'][0]
-    except:
-        print(f"issue with '{key}', will not have capex")
-        tech_param[key]['capex'] = 0
-
-    try:
-        tech_param[key]['fom'] = tech_fom[(tech_fom['Technology'] == tech_param[key]['Technology']) & (
-                    tech_fom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][
-            0]
-    except:
-        print(f"issue with '{key}', will not have fom")
-        tech_param[key]['fom'] = 0
-
-    try:
-        tech_param[key]['vom'] = tech_vom[(tech_vom['Technology'] == tech_param[key]['Technology']) & (
-                    tech_vom['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')['data'][
-            0]
-    except:
-        print(f"'issue with '{key}', will not have vom")
-        tech_param[key]['vom'] = 0
+    for param, cost_df in tech_cost_sheets.items():
+        try:
+            tech_param[key][param] = cost_df[(cost_df['Technology'] == tech_param[key]['Technology']) & (
+                        cost_df['Technology Type'] == tech_param[key]['Technology Type'])][years].to_dict('tight')[
+                'data'][0]
+        except:
+            print(f"issue with '{key}', will not have {param}")
+            tech_param[key][param] = 0
 
     try:
         tech_param[key]['constraints'] = tech_constraints[
@@ -230,11 +251,13 @@ for key in tech_param:
                         tech_constraints['Technology Type'] == tech_param[key]['Technology Type'])].fillna(0).to_dict(
             'records')[0]
     except:
-        print(f"'issue with '{key}', will not have constraints")
+        print(f"issue with '{key}', will not have constraints")
         tech_param[key]['constraints'] = 0
 
 #TandDData
-#td_param = input_df_all["TandDData"].set_index('tech').T.to_dict()
+td_param = input_df_all["TandDData"]
+#InterconnectionData
+ic_param = input_df_all["InterconnectionData"].set_index('Parameter')['Value'].to_dict()
 interconnection = input_df_all["Interconnection"]
 interconnection_long = pd.melt(interconnection, id_vars=interconnection.columns[0],
                                value_vars=interconnection.columns[1:])
@@ -288,6 +311,31 @@ hist_tab = {} #historic capacity table
 lt_tab = {} #life time table
 cin_profile_str = "" #make a string for writing out profiles, which will be added to the cin file
 
+#energy forms shared by every case, province cases add a Fuel level to this
+energyforms_base_s = ("energyforms: \n"
+                      "Final a\n"
+                      "# \n"
+                      "    ElectricityDemand b l \n"
+                      "    # \n"
+                      "    HeatDemand c l \n"
+                      "    # \n"
+                      "*\n"
+                      "Distribution d\n"
+                      "#\n"
+                      "    ElectricityDistribution e l \n"
+                      "    #\n"
+                      "*\n"
+                      "Transmission f\n"
+                      "#\n"
+                      "    ElectricityNonVRE g l \n"
+                      "    #\n"
+                      "    ElectricityVRE h l \n"
+                      "    #\n"
+                      "    Heat i\n"
+                      "    #\n"
+                      "*\n")
+
+
 for cid, c in enumerate(cases_all):
 
     if c in province_list:
@@ -307,12 +355,7 @@ for cid, c in enumerate(cases_all):
 
         # Read excel file
         # Provincial
-        input_xl_p = pd.ExcelFile(input_fp_p)
-        input_sh_p = input_xl_p.sheet_names
-
-        input_df_p = {}
-        for i in input_sh_p:
-            input_df_p[i] = input_xl_p.parse(i)
+        input_df_p = read_workbook(input_fp_p)
 
         #Demand
         demand_y = custom_reader_2(input_df_p, 'Demand', years)
@@ -329,11 +372,11 @@ for cid, c in enumerate(cases_all):
         input_df_p['DemandProfile'].index = input_df_p['DemandProfile'].index + 1  # shift index
         input_df_p['DemandProfile'] = input_df_p['DemandProfile'].sort_index()  # re-order index
         input_df_p['DemandProfile'].columns = ['Carrier', 'electricity']
-        demand_ts = custom_reader_2(input_df_p, 'DemandProfile', [i for i in range(1, 8761)])
+        demand_ts = custom_reader_2(input_df_p, 'DemandProfile', hours_year)
         demand_ts['heat'] = [1] * len(demand_ts['electricity'])  #hardcoded for now, will be removed when heat is added
 
         #REProfile
-        re_ts = custom_reader_2(input_df_p, 'REProfile', [i for i in range(1, 8761)])
+        re_ts = custom_reader_2(input_df_p, 'REProfile', hours_year)
         for re_ in re_ts:
             re_ts[re_] = shift_profile(re_ts[re_], 8)
         #remove profiles which have no values
@@ -411,30 +454,25 @@ for cid, c in enumerate(cases_all):
         #capfac: get fraction of max production (1)
 
         for eform in demand_ts.keys():
-            demand_ts_inday[eform] = {}
-            demand_tot_inday[eform] = {}
+            demand_ts_inday[eform] = sample_days(demand_ts[eform], hoyinday)
+            demand_tot_inday[eform] = {day: sum(v) for day, v in demand_ts_inday[eform].items()}
+            demand_tot_inyear[eform] = sum(demand_tot_inday[eform].values())
+
             demand_frac_ts_day[eform] = {}
             demand_frac_ts_year[eform] = {}
             demand_frac_day_year[eform] = {}
-
-            for day, v in hoyinday.items():
-                demand_ts_inday[eform][day] = [demand_ts[eform][i] for i in v]
-                demand_tot_inday[eform][day] = sum(demand_ts_inday[eform][day])
-            demand_tot_inyear[eform] = sum([j for i, j in demand_tot_inday[eform].items()])
+            tot_year = demand_tot_inyear[eform]
             for day in hoyinday:
-                demand_frac_ts_day[eform][day] = [
-                    i / demand_tot_inday[eform][day] if demand_tot_inday[eform][day] != 0 else 0 for i in
-                    demand_ts_inday[eform][day]]
-                demand_frac_ts_year[eform][day] = [i / demand_tot_inyear[eform] if demand_tot_inyear[eform] != 0 else 0
+                tot_day = demand_tot_inday[eform][day]
+                demand_frac_ts_day[eform][day] = [i / tot_day if tot_day != 0 else 0
+                                                  for i in demand_ts_inday[eform][day]]
+                demand_frac_ts_year[eform][day] = [i / tot_year if tot_year != 0 else 0
                                                    for i in demand_ts_inday[eform][day]]
-                demand_frac_day_year[eform][day] = demand_tot_inday[eform][day] / demand_tot_inyear[eform] if \
-                demand_tot_inyear[eform] != 0 else 0
+                demand_frac_day_year[eform][day] = tot_day / tot_year if tot_year != 0 else 0
 
         for res in re_ts.keys():
-            res_ = re.sub(r'[^a-zA-Z0-9 \n\.]', '', res).lower()
-            re_ts_inday[res_] = {}  #change to lower case
-            for day, v in hoyinday.items():
-                re_ts_inday[res_][day] = [re_ts[res][i] for i in v]
+            res_ = re.sub(r'[^a-zA-Z0-9 \n\.]', '', res).lower()  #change to lower case
+            re_ts_inday[res_] = sample_days(re_ts[res], hoyinday)
             for _, tp in tech_p_dict.items():
                 if tp['mapname'] == res_:
                     tech_p_dict[_]['capfac'] = re_ts_inday[res_]
@@ -457,32 +495,10 @@ for cid, c in enumerate(cases_all):
                 energyforms_fuel_s += (f"   {key} {fuel_c[key]}\n"
                                        f"   #\n")
 
-        energyforms_s = ("energyforms: \n"
-                         "Final a\n"
-                         "# \n"
-                         "    ElectricityDemand b l \n"
-                         "    # \n"
-                         "    HeatDemand c l \n"
-                         "    # \n"
-                         "*\n"
-                         "Distribution d\n"
-                         "#\n"
-                         "    ElectricityDistribution e l \n"
-                         "    #\n"
-                         "*\n"
-                         "Transmission f\n"
-                         "#\n"
-                         "    ElectricityNonVRE g l \n"
-                         "    #\n"
-                         "    ElectricityVRE h l \n"
-                         "    #\n"
-                         "    Heat i\n"
-                         "    #\n"
-                         "*\n"
-                         "Fuel j\n"
-                         "#\n"
-                         f"{energyforms_fuel_s}"
-                         "*\n")
+        energyforms_s = energyforms_base_s + ("Fuel j\n"
+                                              "#\n"
+                                              f"{energyforms_fuel_s}"
+                                              "*\n")
         demand_s = ("demand:\n"  #@
                     f"b-a ts {' '.join([str(round(i, 3)) for i in demand_y['electricity']])}\n"
                     f"c-a ts {' '.join([str(round(i, 3)) for i in demand_y['heat']])}\n"
@@ -518,30 +534,26 @@ for cid, c in enumerate(cases_all):
             tp_key = val['mapname']
             hist_tab[pp] = val['existing']
             lt_tab[pp] = tech_param[tp_key]['lifetime']
+            #all capacity additions after year0 should be included as bdc constraint
+            bdc = []
+            for year in years:
+                bdc_val = 0
+                for y in years_inyearscontinuous[year]:
+                    bdc_val += (val['exogenous'].get(y, 0) + val['existing'].get(y, 0)) / years_intervalsafterprev[
+                        year]
+                bdc.append(bdc_val)
+            bdc_all_s = f"    bdc fx ts {' '.join(str(v) for v in bdc)}\n"
+
             if val['status'] == 'existing':
                 fyear_s = ""
                 inv_s = f"    inv  c 0\n"
                 hist_s = f"    hisc 0. hc {' '.join(f'{k} {v}' for k, v in val['existing'].items() if (k < year0 and k >= year0 - tech_param[tp_key]['lifetime']))}\n"
-                bdc = []
-                for year in years:
-                    bdc_val = 0
-                    for y in years_inyearscontinuous[year]:
-                        bdc_val += (val['exogenous'].get(y, 0) + val['existing'].get(y, 0)) / years_intervalsafterprev[
-                            year]
-                    bdc.append(bdc_val)
-                bdc_s = f"    bdc fx ts {' '.join(str(v) for v in bdc)}\n"  #all capacity additions after year0 should be included as bdc constraint
+                bdc_s = bdc_all_s
             elif val['status'] == 'exogenous':
                 fyear_s = ""
                 inv_s = f"    inv	ts {' '.join(str(i) for i in tech_param[tp_key]['capex'])}\n"
                 hist_s = ""
-                bdc = []
-                for year in years:
-                    bdc_val = 0
-                    for y in years_inyearscontinuous[year]:
-                        bdc_val += (val['exogenous'].get(y, 0) + val['existing'].get(y, 0)) / years_intervalsafterprev[
-                            year]
-                    bdc.append(bdc_val)
-                bdc_s = f"    bdc fx ts {' '.join(str(v) for v in bdc)}\n"
+                bdc_s = bdc_all_s
             elif val['status'] == 'endogenous':
                 continue
                 #Removing all endogenous so only considering generics
@@ -635,68 +647,42 @@ for cid, c in enumerate(cases_all):
                           "#\n"
                           "*\n")
 
-                ldb_tech_s = (f"{pp} {val['activity']}\n"  #@
-                              "*\n")
+                ldb_tech_s = ldb_stub(pp, val['activity'])
 
                 systems_pp_s += tech_s
                 ldb_systems_pp_s += ldb_tech_s
 
             ppcount += 1
 
-        #todo: fix string below to be populated programmatically
-        systems_trans_s = (f"{province}_Transmission_ElectricityNonVRE a\n"  #@
-                           "    minp	g-f 1.\n"
-                           "    moutp	e-d c 0.97\n"
-                           "    inv	c 1000.0\n"
-                           "    fom	c 10.0\n"
-                           "    vom	c 8.76\n"
-                           "#\n"
-                           "*\n"
-                           f"{province}_Transmission_ElectricityVRE b\n"
-                           "    minp	h-f 1.\n"
-                           "    moutp	e-d c 0.97\n"
-                           "    inv	c 1100.0\n"
-                           "    fom	c 10.0\n"
-                           "    vom	c 8.76\n"
-                           "#\n"
-                           "*\n"
-                           f"{province}_Distribution a\n"
-                           "    minp	e-d 1.\n"
-                           "    moutp	b-a c 0.98\n"
-                           "    inv	c 1.0\n"
-                           "    fom	c 10.0\n"
-                           "    vom	c 8.76\n"
-                           "#\n"
-                           "*\n"
-                           "heat_network a\n"
-                           "    minp	i-f 1.\n"
-                           "    moutp	c-a c 0.98\n"
-                           "    inv	c 1000.0\n"
-                           "    fom	c 10.0\n"
-                           "    vom	c 8.76\n"
-                           "#\n"
-                           "*\n"
-                           "heat_dummy a\n"
-                           "    moutp	i-f c 1\n"
-                           "    inv	c 1.0\n"
-                           "    vom	c 0.1\n"
-                           "#\n"
-                           "*\n"
-                           )
+        #transmission and distribution, read from the TandDData sheet
+        systems_trans_s = ""
+        for _, td in td_param.iterrows():
+            if td['province prefix'] == 1:
+                td_name = f"{province}_{td['tech']}"
+            else:
+                td_name = td['tech']
+            systems_trans_s += f"{td_name} {td['activity']}\n"
+            systems_trans_s += f"    minp	{td['minp']} 1.\n"
+            systems_trans_s += f"    moutp	{td['moutp']} c {numstr(td['efficiency'])}\n"
+
+            systems_trans_s += f"    inv	c {float(td['inv'])}\n"
+
+            systems_trans_s += f"    fom	c {float(td['fom'])}\n"
+
+            systems_trans_s += f"    vom	c {float(td['vom'])}\n"
+            systems_trans_s += ("#\n"
+                                "*\n")
 
         # File _adb.ldr
 
         ldr_loadcurve_season_s = {}
         for k, v in demand_frac_ts_day.items():
             for i in v:
-                if k in ldr_loadcurve_season_s:
-                    ldr_loadcurve_season_s[k] += (f"1.000000\n"
-                                                  f"{' '.join(str(round(j, 6)) for j in v[i])}\n")
-                else:
+                if k not in ldr_loadcurve_season_s:  #start with the day of year fractions
                     ldr_loadcurve_season_s[
                         k] = f"{' '.join(str(round(l, 6)) for l in demand_frac_day_year[k].values())}\n"  #@
-                    ldr_loadcurve_season_s[k] += (f"1.000000\n"
-                                                  f"{' '.join(str(round(j, 6)) for j in v[i])}\n")
+                ldr_loadcurve_season_s[k] += (f"1.000000\n"
+                                              f"{' '.join(str(round(j, 6)) for j in v[i])}\n")
         ldr_loadcurves_s = (f"loadcurves: \n"  #@
                             f"b-a\n"
                             f"{year0}\n"
@@ -715,28 +701,7 @@ for cid, c in enumerate(cases_all):
 
     else:  #else if not province, so is main
         case_name = main_name
-        energyforms_s = ("energyforms: \n"
-                         "Final a\n"
-                         "# \n"
-                         "    ElectricityDemand b l \n"
-                         "    # \n"
-                         "    HeatDemand c l \n"
-                         "    # \n"
-                         "*\n"
-                         "Distribution d\n"
-                         "#\n"
-                         "    ElectricityDistribution e l \n"
-                         "    #\n"
-                         "*\n"
-                         "Transmission f\n"
-                         "#\n"
-                         "    ElectricityNonVRE g l \n"
-                         "    #\n"
-                         "    ElectricityVRE h l \n"
-                         "    #\n"
-                         "    Heat i\n"
-                         "    #\n"
-                         "*\n")
+        energyforms_s = energyforms_base_s
         demand_s = "demand:\n"
         loadcurve_s = "loadcurve:\n"
         loadcurve_systems_s = ""
@@ -747,17 +712,16 @@ for cid, c in enumerate(cases_all):
         for id, line in interconnection_main.iterrows():
             tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"
                       f"    minp  e-d-{line['from']}_{input_fn} 1.\n"
-                      f"    moutp e-d-{line['to']}_{input_fn} c 0.97\n"  #efficiency of 0.98
-                      "    pll	c 40\n"
-                      "    inv	c 1000.0\n"
-                      "    fom	c 10.0\n"
-                      "    vom	c 8.76\n"
-                      f"    hisc 0. hc 2010 {line['value']}\n"
+                      f"    moutp e-d-{line['to']}_{input_fn} c {numstr(ic_param['efficiency'])}\n"
+                      f"    pll	c {numstr(ic_param['lifetime'])}\n"
+                      f"    inv	c {float(ic_param['inv'])}\n"
+                      f"    fom	c {float(ic_param['fom'])}\n"
+                      f"    vom	c {float(ic_param['vom'])}\n"
+                      f"    hisc 0. hc {numstr(ic_param['historic capacity year'])} {line['value']}\n"
                       "#\n"
                       "*\n")
 
-            ldb_tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"  # @
-                          "*\n")
+            ldb_tech_s = ldb_stub(line['line_name'], ascii_all[counter_line])
 
             systems_pp_s += tech_s
             ldb_systems_pp_s += ldb_tech_s
@@ -882,7 +846,6 @@ for cid, c in enumerate(cases_all):
     os.makedirs(output_fd)
 
     # Copy all files over from orig folder to new folder
-    orig_base_fd = f'E:/Work/benchmark/MESSAGE_generator/MESSAGE_orig/{orig_name}'
     shutil.copytree(orig_base_fd, output_fd, dirs_exist_ok=True)
 
     # Replace all file names with new case name
@@ -975,29 +938,25 @@ for cid, c in enumerate(cases_all):
 
     #Only use the following if creating model for the first time
     if create_reg == 1:
-        if generate_main == 1:
-            case_path = f'{main_name}/{case_name}'
-        else:
-            case_path = case_name
         create_reg_func(MESSAGE_mms_fils, case_name, generate_main, mn=main_name)
 
 #write out cin profile in text file
-with open(f"{MESSAGE_root_fd}/{main_name}/{main_name}/cin_profile_str.txt", "w") as file:
+with open(f"{main_case_fd}/cin_profile_str.txt", "w") as file:
     file.write(cin_profile_str)
 
 #todo: essential files to change: ldr, ldb, adb, dic, chkunits, chn
 
 if generate_main == 1:
-    regid_new_path = f'{MESSAGE_root_fd}/{main_name}/{main_name}/regid'  #write out regid_string
+    regid_new_path = f'{main_case_fd}/regid'  #write out regid_string
     with open(regid_new_path, 'w') as file:
         file.write(regid_string)
 
     #write out historic installation data
     hist_df = pd.DataFrame(hist_tab)
-    hist_df.to_csv(f"{MESSAGE_root_fd}/{main_name}/{main_name}/hist_tab.csv")
+    hist_df.to_csv(f"{main_case_fd}/hist_tab.csv")
 
     lt_df = pd.DataFrame([lt_tab])
-    lt_df.to_csv(f"{MESSAGE_root_fd}/{main_name}/{main_name}/lt_tab.csv")
+    lt_df.to_csv(f"{main_case_fd}/lt_tab.csv")
 
     #todo: cin file, hourly
     #todo: convert from cap file to excel
