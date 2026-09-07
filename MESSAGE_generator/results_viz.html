@@ -1,0 +1,868 @@
+<title>MESSAGE results</title>
+
+<style>
+  :root {
+    --ground:#F7F8FA; --surface:#FFFFFF; --inset:#F1F3F6; --line:#E1E5EB;
+    --line-strong:#C7CFD9; --ink:#131A22; --muted:#66727F;
+    --accent:#0B6E70; --accent-ink:#FFFFFF;
+    --grid:#E8EBEF; --axis:#C7CFD9; --onfill:#FFFFFF; --hatch:rgba(0,0,0,.42);
+    /* fuel identity — validated set. the two ccs/pumped variants share their
+       family hue and are told apart by texture, not by a ninth colour */
+    --Coal:#77787D; --Gas:#eb6834; --Nuclear:#4a3aa7; --Biomass:#008300;
+    --Hydro:#2a78d6; --Wind:#1baf7a; --Solar:#eda100; --Storage:#e87ba4;
+    /* cost and transmission — one-hue ordinal ramp */
+    --c1:#86b6ef; --c2:#2a78d6; --c3:#104281;
+    /* nuclear map — sequential ramp stepped from the nuclear hue */
+    --n0:#EDEDF6; --n1:#a9aaea; --n2:#7672cb; --n3:#4939a6; --bad:#A93A32;
+    --sans: ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono: ui-monospace,"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      --ground:#10151B; --surface:#171E26; --inset:#121820; --line:#273039;
+      --line-strong:#3A4552; --ink:#E6EBF1; --muted:#8B98A6;
+      --accent:#55C0BF; --accent-ink:#08221F;
+      --grid:#232C36; --axis:#3A4552; --onfill:#0F1319; --hatch:rgba(255,255,255,.45);
+      --Coal:#8A8C93; --Gas:#d95926; --Nuclear:#9085e9; --Biomass:#008300;
+      --Hydro:#3987e5; --Wind:#199e70; --Solar:#c98500; --Storage:#d55181;
+      --c1:#9ec5f4; --c2:#3987e5; --c3:#184f95;
+      --n0:#1E2530; --n1:#5649b6; --n2:#8682dd; --n3:#bcbef9; --bad:#E07C71;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#10151B; --surface:#171E26; --inset:#121820; --line:#273039;
+    --line-strong:#3A4552; --ink:#E6EBF1; --muted:#8B98A6;
+    --accent:#55C0BF; --accent-ink:#08221F;
+    --grid:#232C36; --axis:#3A4552; --onfill:#0F1319; --hatch:rgba(255,255,255,.45);
+    --Coal:#8A8C93; --Gas:#d95926; --Nuclear:#9085e9; --Biomass:#008300;
+    --Hydro:#3987e5; --Wind:#199e70; --Solar:#c98500; --Storage:#d55181;
+    --c1:#9ec5f4; --c2:#3987e5; --c3:#184f95;
+    --n0:#1E2530; --n1:#5649b6; --n2:#8682dd; --n3:#bcbef9; --bad:#E07C71;
+  }
+
+  body { background:var(--ground); color:var(--ink); font-family:var(--sans);
+         font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1120px; margin:0 auto; padding:28px 24px 56px;
+          display:flex; flex-direction:column; gap:18px; }
+
+  .bar { display:flex; align-items:baseline; justify-content:space-between;
+         flex-wrap:wrap; gap:8px 20px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .bar h1 { font-size:17px; font-weight:600; letter-spacing:-0.01em; }
+  .bar .where { font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .note { font-size:12px; color:var(--muted); margin-top:-8px; }
+
+  .filters { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  label.f { font-family:var(--mono); font-size:10.5px; text-transform:uppercase;
+            letter-spacing:0.07em; color:var(--muted); }
+  select, button.tgl {
+    font:inherit; font-size:13px; font-family:var(--mono); padding:5px 9px;
+    border-radius:5px; border:1px solid var(--line-strong);
+    background:var(--surface); color:var(--ink); cursor:pointer;
+  }
+  button.tgl[aria-pressed="true"] { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  button.tgl[disabled] { opacity:.5; cursor:progress; }
+  :is(button,select,input):focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .status { font-size:12px; color:var(--muted); }
+
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+  .tile { background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:13px 15px; }
+  .tile .k { font-family:var(--mono); font-size:10.5px; text-transform:uppercase;
+             letter-spacing:0.07em; color:var(--muted); }
+  .tile .v { font-size:26px; font-weight:600; letter-spacing:-0.02em; margin-top:3px; }
+  .tile .u { font-size:12px; color:var(--muted); font-weight:400; margin-left:3px; }
+  .tile .d { font-size:12px; color:var(--muted); margin-top:1px; }
+
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:6px;
+          overflow:hidden; display:flex; flex-direction:column; }
+  .card > header { padding:13px 16px 0; display:flex; align-items:flex-start;
+                   justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .card h2 { font-size:14px; font-weight:600; }
+  .card p { font-size:12px; color:var(--muted); }
+  .plot { padding:8px 12px 12px; position:relative; }
+  svg { display:block; width:100%; height:auto; overflow:visible; }
+  .gridline { stroke:var(--grid); stroke-width:1; }
+  .axis { stroke:var(--axis); stroke-width:1; }
+  text { font-family:var(--sans); fill:var(--muted); }
+  .tick { font-size:10.5px; font-variant-numeric:tabular-nums; }
+  .vlab { font-size:10px; font-variant-numeric:tabular-nums; fill:var(--ink); font-weight:500; }
+  .endlab { font-size:10.5px; fill:var(--ink); font-weight:600; }
+  .panelttl { font-size:11px; font-weight:600; fill:var(--ink); }
+
+  .legend { display:flex; flex-wrap:wrap; gap:4px 14px; padding:0 16px 13px; }
+  .legend span.it { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink); }
+  .sw { width:10px; height:10px; border-radius:2px; flex:none; }
+  .dashkey { width:16px; height:0; border-top-width:2px; border-top-style:dotted; flex:none; }
+
+  .slider { display:flex; align-items:center; gap:11px; padding:2px 16px 12px; }
+  .slider input[type=range] { flex:1; accent-color:var(--accent); cursor:pointer; }
+  .slider .yr { font-family:var(--mono); font-size:13px; font-weight:600; color:var(--ink);
+                min-width:42px; font-variant-numeric:tabular-nums; }
+  .slider .ends { font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+
+  .tip { position:absolute; pointer-events:none; opacity:0; transition:opacity .1s;
+         background:var(--surface); border:1px solid var(--line-strong); border-radius:5px;
+         padding:7px 9px; font-size:12px; box-shadow:0 3px 12px rgba(0,0,0,.13); z-index:5; min-width:130px; }
+  .tip h4 { font-size:10.5px; font-family:var(--mono); color:var(--muted); margin-bottom:3px;
+            text-transform:uppercase; letter-spacing:0.06em; }
+  .tip .r { display:flex; align-items:center; gap:6px; justify-content:space-between; color:var(--ink); }
+  .tip .r b { font-weight:500; font-variant-numeric:tabular-nums; margin-left:14px; }
+  .tip .nm { display:inline-flex; align-items:center; gap:5px; }
+
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:12.5px; }
+  th { text-align:right; font-family:var(--mono); font-weight:400; font-size:10px;
+       text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);
+       padding:7px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  td { padding:7px 12px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:none; }
+  .tblwrap { overflow-x:auto; }
+  [hidden] { display:none !important; }
+
+  .mapnote { font-size:11.5px; color:var(--muted); padding:0 16px 14px; max-width:64ch; }
+  .mapnote b { color:var(--ink); }
+  #defs { position:absolute; width:0; height:0; }
+</style>
+
+<svg id="defs" aria-hidden="true">
+  <defs>
+    <pattern id="hx-coal" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="var(--Coal)"></rect>
+      <line x1="0" y1="0" x2="0" y2="7" stroke="var(--hatch)" stroke-width="2.6"></line>
+    </pattern>
+    <pattern id="hx-sto" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(135)">
+      <rect width="7" height="7" fill="var(--Storage)"></rect>
+      <line x1="0" y1="0" x2="0" y2="7" stroke="var(--hatch)" stroke-width="2.6"></line>
+    </pattern>
+    <marker id="arw" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5"
+            orient="auto-start-reverse">
+      <path d="M0,1L7,4L0,7Z" fill="var(--muted)"></path>
+    </marker>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="bar">
+    <h1>MESSAGE results</h1>
+    <span class="where">E:\Work\benchmark\results</span>
+  </div>
+  <p class="note">Mock-up, drawn from the csv files process_results.py wrote for CN_NW2 and CN_NW3.
+    Energy is reported in MWyr and shown here as TWh (&times;8.76).</p>
+
+  <div class="filters">
+    <label class="f" for="run">Scenario</label>
+    <select id="run"></select>
+    <button class="tgl" id="refresh" type="button">Refresh</button>
+    <span class="status" id="status"></span>
+    <span style="flex:1"></span>
+    <button class="tgl" id="astable" type="button" aria-pressed="false">Table view</button>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="grid2">
+    <section class="card">
+      <header><div><h2>Generation by source</h2><p id="gen-sub"></p></div></header>
+      <div class="plot"><div id="gen"></div><div class="tip" id="tip-gen"></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2>Installed capacity</h2><p id="cap-sub"></p></div></header>
+      <div class="plot"><div id="cap"></div><div class="tip" id="tip-cap"></div></div>
+      <div class="legend" id="legend2"></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <header><div><h2>Renewable and storage generation</h2><p id="rgen-sub"></p></div></header>
+      <div class="plot"><div id="rgen"></div><div class="tip" id="tip-rgen"></div></div>
+      <div class="legend" id="legend6"></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2>Renewable and storage capacity</h2><p id="rcap-sub"></p></div></header>
+      <div class="plot"><div id="rcap"></div><div class="tip" id="tip-rcap"></div></div>
+      <div class="legend" id="legend7"></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <header><div><h2>Penetration rate</h2><p id="pen-sub"></p></div></header>
+      <div class="plot"><div id="pen"></div><div class="tip" id="tip-pen"></div></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2>Transmission capacity</h2><p id="trans-sub"></p></div></header>
+      <div class="plot"><div id="trans"></div><div class="tip" id="tip-trans"></div></div>
+      <div class="legend" id="legend8"></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <header><div><h2>System cost</h2><p id="cost-sub"></p></div></header>
+      <div class="plot"><div id="cost"></div><div class="tip" id="tip-cost"></div></div>
+      <div class="legend" id="legend3"></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2>CO2 emissions</h2><p id="emi-sub"></p></div></header>
+      <div class="plot"><div id="emi"></div><div class="tip" id="tip-emi"></div></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <header><div><h2>Hourly dispatch</h2><p id="dis-sub"></p></div></header>
+    <div class="slider">
+      <span class="ends" id="dis-lo"></span>
+      <input type="range" id="dis-year" min="0" max="2" step="1" value="2" aria-label="Dispatch year">
+      <span class="ends" id="dis-hi"></span>
+      <span class="yr" id="dis-yr"></span>
+    </div>
+    <div class="plot"><div id="dis"></div><div class="tip" id="tip-dis"></div></div>
+    <div class="legend" id="legend4"></div>
+  </section>
+
+  <section class="card" id="mapcard">
+    <header>
+      <div><h2>Where nuclear is built</h2><p id="map-sub"></p></div>
+      <div class="filters">
+        <label class="f" for="mapsize">Square size</label>
+        <select id="mapsize"></select>
+        <button class="tgl" id="showlinks" type="button" aria-pressed="true">Links</button>
+      </div>
+    </header>
+    <div class="slider">
+      <span class="ends" id="map-lo"></span>
+      <input type="range" id="map-year" min="0" max="2" step="1" value="2" aria-label="Map year">
+      <span class="ends" id="map-hi"></span>
+      <span class="yr" id="map-yr"></span>
+    </div>
+    <div class="plot"><div id="map"></div><div class="tip" id="tip-map"></div></div>
+    <div class="legend" id="legend5"></div>
+    <p class="mapnote">Colour is nuclear capacity, square area is the selected measure.
+      Arrows are the transmission links between provinces.
+      <b>*</b> marks a province connected to the Dummy storage region, whose seven
+      links are left undrawn so they do not cross the whole grid.</p>
+  </section>
+
+  <section class="card" id="tablecard" hidden>
+    <header><div><h2>Values</h2><p id="tbl-sub"></p></div></header>
+    <div class="tblwrap" id="tbl"></div>
+  </section>
+</div>
+
+<script>
+/* the server replaces this with null and the page fetches instead. a snapshot
+   built with "results_viz.py snapshot" carries its data here and has no
+   Refresh, since there is nothing behind it to refresh from */
+const INLINE = __DATA__;
+let DATA, ORDER, COSTS, TILES, RENEW, FORMS, TWH, SLICE;
+const COSTVAR = { "Investment": "c3", "Fixed O&M": "c2", "Variable O&M": "c1" };
+const FORMVAR = { "ElectricityVRE": "c1", "ElectricityNonVRE": "c3" };
+const FORMNAME = { "ElectricityVRE": "VRE", "ElectricityNonVRE": "Non-VRE" };
+/* the two textured variants and the hue family each belongs to */
+const TEXTURE = { "Coal CCS": ["url(#hx-coal)", "Coal"], "Pumped": ["url(#hx-sto)", "Storage"] };
+const HUE = { "Coal": "Coal", "Coal CCS": "Coal", "Gas": "Gas", "Nuclear": "Nuclear",
+  "Biomass": "Biomass", "Hydro": "Hydro", "Wind": "Wind", "Solar": "Solar",
+  "Battery": "Storage", "Pumped": "Storage" };
+
+const $ = (s) => document.querySelector(s);
+const css = (g) => getComputedStyle(document.documentElement).getPropertyValue("--" + g).trim();
+const fmt = (v, d) => v.toLocaleString("en-GB", { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (n, a) => { const e = document.createElementNS(SVGNS, n);
+  for (const k in (a || {})) e.setAttribute(k, a[k]); return e; };
+/* what a group is painted with: its hue, or a texture over that hue */
+const fillOf = (k) => TEXTURE[k] ? TEXTURE[k][0] : css(HUE[k] || k);
+const keyOf = (k) => css(HUE[k] || k);
+
+let RUN = "CN_NW3", DISI = 0, MAPI = 0, TABLE = false, SHOWLINKS = true, MAPSIZE = "Total";
+
+function ticks(max, n) {
+  n = n || 4;
+  const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || mag * 10;
+  const out = []; for (let v = 0; v <= max * 1.0001; v += step) out.push(v);
+  return out;
+}
+function frame(w, h, pad) {
+  const svg = el("svg", { viewBox: "0 0 " + w + " " + h, role: "img" });
+  return { svg, x0: pad.l, x1: w - pad.r, y0: pad.t, y1: h - pad.b, w, h };
+}
+function yAxis(g, max, scale, mul, dp) {
+  for (const t of ticks(max)) {
+    const y = scale(t);
+    g.svg.appendChild(el("line", { class: t === 0 ? "axis" : "gridline", x1: g.x0, x2: g.x1, y1: y, y2: y }));
+    const lab = el("text", { class: "tick", x: g.x0 - 7, y: y + 3.5, "text-anchor": "end" });
+    lab.textContent = t === 0 ? "0" : fmt(t * mul, dp || 0);
+    g.svg.appendChild(lab);
+  }
+}
+function unitCap(g, txt) {
+  const c = el("text", { class: "tick", x: 2, y: 10 }); c.textContent = txt; g.svg.appendChild(c);
+}
+function showTip(tipEl, host, ev, title, rows) {
+  tipEl.innerHTML = "<h4>" + title + "</h4>" + rows.map((r) =>
+    '<div class="r"><span class="nm">' + (r[2] ? '<span class="sw" style="background:' + r[2] + '"></span>' : "") +
+    r[0] + "</span><b>" + r[1] + "</b></div>").join("");
+  const b = host.getBoundingClientRect();
+  let x = ev.clientX - b.left + 14, y = ev.clientY - b.top + 12;
+  if (x + 215 > b.width) x = ev.clientX - b.left - 215;
+  if (y + tipEl.offsetHeight > b.height) y = b.height - tipEl.offsetHeight - 4;
+  tipEl.style.left = Math.max(2, x) + "px"; tipEl.style.top = Math.max(2, y) + "px";
+  tipEl.style.opacity = 1;
+}
+function wireTip(host, tipEl) { host.addEventListener("mouseleave", () => { tipEl.style.opacity = 0; }); }
+function roundedTop(x, y, w, h, r) {
+  if (!r) return "M" + x + "," + y + "h" + w + "v" + h + "h" + (-w) + "Z";
+  r = Math.min(r, h, w / 2);
+  return "M" + x + "," + (y + h) + "V" + (y + r) + "a" + r + "," + r + " 0 0 1 " + r + "," + (-r) +
+         "h" + (w - 2 * r) + "a" + r + "," + r + " 0 0 1 " + r + "," + r + "V" + (y + h) + "Z";
+}
+
+/* ---- stacked bars over milestone years ---- */
+function stackedBars(mount, tip, years, series, keys, paint, unit, mul, dp, label) {
+  mount.innerHTML = "";
+  const W = 470, H = 262, pad = { l: 54, r: 14, t: 24, b: 26 };
+  const g = frame(W, H, pad);
+  const totals = years.map((_, i) => keys.reduce((s, k) => s + (series[k] ? series[k][i] : 0), 0));
+  const max = Math.max.apply(null, totals) * 1.1 || 1;
+  const sy = (v) => g.y1 - (v / max) * (g.y1 - g.y0);
+  yAxis(g, max, sy, mul, dp); unitCap(g, unit);
+  const bw = Math.min(70, (g.x1 - g.x0) / years.length - 30);
+  years.forEach((yr, i) => {
+    const cx = g.x0 + ((i + 0.5) * (g.x1 - g.x0)) / years.length;
+    let acc = 0;
+    keys.forEach((k) => {
+      const v = series[k] ? series[k][i] : 0;
+      if (v <= 0) return;
+      const yTop = sy(acc + v), yBot = sy(acc);
+      const h = Math.max(0, yBot - yTop - 2);
+      if (h > 0.5) {
+        const isTop = acc + v >= totals[i] - 1e-6;
+        const seg = el("path", { fill: paint(k), d: roundedTop(cx - bw / 2, yTop, bw, h, isTop ? 4 : 0) });
+        seg.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+          (label ? label(k) : k) + " \u00b7 " + yr,
+          [[unit, fmt(v * mul, dp || 0), keyOf(k)], ["Share", fmt((v / totals[i]) * 100, 1) + "%"]]));
+        g.svg.appendChild(seg);
+        if (h > 16) {
+          const t = el("text", { class: "vlab", x: cx, y: (yTop + yBot) / 2 + 3.5,
+            "text-anchor": "middle", fill: "var(--onfill)" });
+          t.textContent = fmt(v * mul, dp || 0); g.svg.appendChild(t);
+        }
+      }
+      acc += v;
+    });
+    const lab = el("text", { class: "tick", x: cx, y: g.y1 + 16, "text-anchor": "middle" });
+    lab.textContent = yr; g.svg.appendChild(lab);
+    const tot = el("text", { class: "vlab", x: cx, y: sy(totals[i]) - 8, "text-anchor": "middle" });
+    tot.textContent = fmt(totals[i] * mul, dp || 0); g.svg.appendChild(tot);
+  });
+  mount.appendChild(g.svg);
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- lines over milestone years, each labelled at its end ---- */
+function lineChart(mount, tip, years, series, keys, styleOf, unit, mul, dp) {
+  mount.innerHTML = "";
+  const W = 470, H = 262, pad = { l: 54, r: 74, t: 24, b: 26 };
+  const g = frame(W, H, pad);
+  let max = 0;
+  keys.forEach((k) => (series[k] || []).forEach((v) => { if (v * mul > max) max = v * mul; }));
+  max = (max || 1) * 1.15;
+  const n = years.length;
+  const sx = (i) => n === 1 ? (g.x0 + g.x1) / 2 : g.x0 + (i / (n - 1)) * (g.x1 - g.x0);
+  const sy = (v) => g.y1 - (v / max) * (g.y1 - g.y0);
+  yAxis(g, max, sy, 1, dp); unitCap(g, unit);
+  years.forEach((y, i) => {
+    const lab = el("text", { class: "tick", x: sx(i), y: g.y1 + 16, "text-anchor": "middle" });
+    lab.textContent = y; g.svg.appendChild(lab);
+  });
+  /* end labels are stacked apart so they do not collide */
+  const ends = [];
+  keys.forEach((k) => {
+    const st = styleOf(k), vals = (series[k] || []).map((v) => v * mul);
+    const pts = vals.map((v, i) => [sx(i), sy(v)]);
+    if (!pts.length) return;
+    g.svg.appendChild(el("path", { d: "M" + pts.map((p) => p.join(",")).join("L"),
+      fill: "none", stroke: st.color, "stroke-width": 2, "stroke-linejoin": "round",
+      "stroke-linecap": "round", "stroke-dasharray": st.dash || "none" }));
+    pts.forEach((p, i) => {
+      const c = el("circle", { cx: p[0], cy: p[1], r: 4, fill: st.color,
+        stroke: "var(--surface)", "stroke-width": 2 });
+      c.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+        k + " \u00b7 " + years[i], [[unit, fmt(vals[i], dp || 0), st.color]]));
+      g.svg.appendChild(c);
+    });
+    ends.push({ k, y: pts[pts.length - 1][1], x: pts[pts.length - 1][0], color: st.color });
+  });
+  ends.sort((a, b) => a.y - b.y);
+  let prev = -99;
+  ends.forEach((e2) => {
+    const y = Math.max(e2.y, prev + 12); prev = y;
+    const t = el("text", { class: "endlab", x: e2.x + 8, y: y + 3.5, fill: e2.color });
+    t.textContent = e2.k; g.svg.appendChild(t);
+  });
+  mount.appendChild(g.svg);
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- dispatch: four seasons as small multiples on a shared scale ---- */
+function dispatchGrid(mount, tip, prof, year) {
+  mount.innerHTML = "";
+  const W = 950, cellW = 455, cellH = 190, gapX = 40, gapY = 40;
+  const H = cellH * 2 + gapY + 30;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  const hours = 24;
+  /* a slice holds MWyr; dividing by the share of the year it stands for
+     turns it into average power */
+  const gw = (v, s) => v / SLICE[s - 1] / 1000;
+  let max = 0;
+  for (let s = 1; s <= 4; s++) {
+    const p = prof[year + "-" + s] || {};
+    for (let h = 0; h < hours; h++) {
+      const t = ORDER.reduce((a, k) => a + (p[k] ? p[k][h] : 0), 0);
+      if (gw(t, s) > max) max = gw(t, s);
+    }
+  }
+  max = (max || 1) * 1.12;
+  const SEASON = ["Winter \u00b7 season 1", "Spring \u00b7 season 2",
+                  "Summer \u00b7 season 3", "Autumn \u00b7 season 4"];
+  for (let s = 1; s <= 4; s++) {
+    const ox = ((s - 1) % 2) * (cellW + gapX);
+    const oy = Math.floor((s - 1) / 2) * (cellH + gapY) + 22;
+    const pad = { l: 52, r: 10, t: 8, b: 22 };
+    const x0 = ox + pad.l, x1 = ox + cellW - pad.r, y0 = oy + pad.t, y1 = oy + cellH - pad.b;
+    const sx = (h) => x0 + (h / (hours - 1)) * (x1 - x0);
+    const sy = (v) => y1 - (v / max) * (y1 - y0);
+    const ttl = el("text", { class: "panelttl", x: x0, y: oy - 6 });
+    ttl.textContent = SEASON[s - 1]; svg.appendChild(ttl);
+    for (const t of ticks(max)) {
+      svg.appendChild(el("line", { class: t === 0 ? "axis" : "gridline", x1: x0, x2: x1, y1: sy(t), y2: sy(t) }));
+      const lab = el("text", { class: "tick", x: x0 - 7, y: sy(t) + 3.5, "text-anchor": "end" });
+      lab.textContent = t === 0 ? "0" : fmt(t, 0); svg.appendChild(lab);
+    }
+    const p = prof[year + "-" + s] || {};
+    const totals = [];
+    for (let h = 0; h < hours; h++) totals.push(ORDER.reduce((a, k) => a + (p[k] ? p[k][h] : 0), 0));
+    const below = new Array(hours).fill(0);
+    ORDER.forEach((k) => {
+      const vals = p[k] || new Array(hours).fill(0);
+      if (!vals.some((v) => v > 0)) return;
+      const top = vals.map((v, h) => below[h] + v);
+      let d = "M" + sx(0) + "," + sy(gw(below[0], s));
+      for (let h = 0; h < hours; h++) d += "L" + sx(h) + "," + sy(gw(top[h], s));
+      for (let h = hours - 1; h >= 0; h--) d += "L" + sx(h) + "," + sy(gw(below[h], s));
+      svg.appendChild(el("path", { d: d + "Z", fill: fillOf(k),
+        stroke: "var(--surface)", "stroke-width": 2, "stroke-linejoin": "round" }));
+      for (let h = 0; h < hours; h++) below[h] = top[h];
+    });
+    for (let h = 0; h < hours; h += 6) {
+      const lab = el("text", { class: "tick", x: sx(h), y: y1 + 15, "text-anchor": "middle" });
+      lab.textContent = String(h + 1).padStart(2, "0") + ":00"; svg.appendChild(lab);
+    }
+    const cross = el("line", { class: "axis", y1: y0, y2: y1, opacity: 0, "stroke-width": 1.5 });
+    svg.appendChild(cross);
+    const hit = el("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: "transparent" });
+    hit.addEventListener("mousemove", (e) => {
+      const b = svg.getBoundingClientRect();
+      const rel = ((e.clientX - b.left) / b.width) * W;
+      let h = Math.round(((rel - x0) / (x1 - x0)) * (hours - 1));
+      h = Math.max(0, Math.min(hours - 1, h));
+      cross.setAttribute("x1", sx(h)); cross.setAttribute("x2", sx(h)); cross.setAttribute("opacity", .55);
+      const rows = ORDER.filter((k) => p[k] && p[k][h] > 0.001)
+        .map((k) => [k, fmt(gw(p[k][h], s), 1) + " GW", keyOf(k)]).reverse();
+      rows.push(["Total", fmt(gw(totals[h], s), 1) + " GW"]);
+      showTip(tip, mount.parentElement, e,
+        SEASON[s - 1].split(" \u00b7 ")[0] + " " + String(h + 1).padStart(2, "0") + ":00", rows);
+    });
+    hit.addEventListener("mouseleave", () => cross.setAttribute("opacity", 0));
+    svg.appendChild(hit);
+  }
+  const cap = el("text", { class: "tick", x: 2, y: 10 }); cap.textContent = "GW"; svg.appendChild(cap);
+  mount.appendChild(svg);
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- emissions: the selected scenario only ---- */
+function emissions(mount, tip) {
+  mount.innerHTML = "";
+  const d = DATA.runs[RUN];
+  const W = 470, H = 262, pad = { l: 54, r: 30, t: 24, b: 26 };
+  const g = frame(W, H, pad);
+  const max = Math.max.apply(null, d.emission) * 1.18;
+  const n = d.years.length;
+  const sx = (i) => n === 1 ? (g.x0 + g.x1) / 2 : g.x0 + (i / (n - 1)) * (g.x1 - g.x0);
+  const sy = (v) => g.y1 - (v / max) * (g.y1 - g.y0);
+  yAxis(g, max, sy, 1, 0); unitCap(g, "Mt CO2");
+  d.years.forEach((y, i) => {
+    const lab = el("text", { class: "tick", x: sx(i), y: g.y1 + 16, "text-anchor": "middle" });
+    lab.textContent = y; g.svg.appendChild(lab);
+  });
+  const pts = d.years.map((y, i) => [sx(i), sy(d.emission[i])]);
+  g.svg.appendChild(el("path", { d: "M" + sx(0) + "," + g.y1 +
+    pts.map((p) => "L" + p[0] + "," + p[1]).join("") + "L" + sx(n - 1) + "," + g.y1 + "Z",
+    fill: "var(--accent)", opacity: .09 }));
+  g.svg.appendChild(el("path", { d: "M" + pts.map((p) => p.join(",")).join("L"),
+    fill: "none", stroke: "var(--accent)", "stroke-width": 2, "stroke-linejoin": "round" }));
+  pts.forEach((p, i) => {
+    const c = el("circle", { cx: p[0], cy: p[1], r: 5, fill: "var(--accent)",
+      stroke: "var(--surface)", "stroke-width": 2 });
+    c.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+      RUN + " \u00b7 " + d.years[i], [["CO2", fmt(d.emission[i], 0) + " Mt"]]));
+    g.svg.appendChild(c);
+    const t = el("text", { class: "vlab", x: p[0], y: p[1] - 11, "text-anchor": "middle" });
+    t.textContent = fmt(d.emission[i], 0); g.svg.appendChild(t);
+  });
+  mount.appendChild(g.svg);
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- nuclear map: a schematic tile grid, not real boundaries ---- */
+function tileMap(mount, tip, year, yi) {
+  mount.innerHTML = "";
+  const d = DATA.runs[RUN];
+  const cols = 8, rows = 8, cell = 54, gap = 5;
+  const W = cols * cell + (cols - 1) * gap, H = rows * cell + (rows - 1) * gap;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  const mid = (name) => {
+    const t = TILES[name];
+    return t ? [t[0] * (cell + gap) + cell / 2, t[1] * (cell + gap) + cell / 2] : null;
+  };
+  const sizeOf = (name) => {
+    if (MAPSIZE === "Demand") {
+      const dem = d.provDemand && d.provDemand[name];
+      return dem ? dem[yi] : 0;
+    }
+    const p = d.provProd[name];
+    if (!p) return 0;
+    return MAPSIZE === "Total" ? ORDER.reduce((s, k) => s + (p[k] ? p[k][yi] : 0), 0)
+                               : (p[MAPSIZE] ? p[MAPSIZE][yi] : 0);
+  };
+  let max = 0, maxSize = 0;
+  Object.keys(d.nuclear).forEach((p) => d.nuclear[p].forEach((v) => { if (v > max) max = v; }));
+  Object.keys(TILES).forEach((n) => { const s = sizeOf(n); if (s > maxSize) maxSize = s; });
+  const steps = [css("n1"), css("n2"), css("n3")];
+  const bandOf = (v) => v <= 0 ? null : v < max / 3 ? 0 : v < (2 * max) / 3 ? 1 : 2;
+
+  const starred = new Set(), linksOf = {};
+  d.links.forEach((l) => {
+    const [a, b, mw] = l;
+    (linksOf[a] = linksOf[a] || []).push([b, mw, "out"]);
+    (linksOf[b] = linksOf[b] || []).push([a, mw, "in"]);
+    if (a === "Dummy") starred.add(b);
+    if (b === "Dummy") starred.add(a);
+  });
+
+  Object.keys(TILES).forEach((name) => {
+    const [c, r] = TILES[name];
+    const ox = c * (cell + gap), oy = r * (cell + gap);
+    const isDummy = name === "Dummy";
+    const v = d.nuclear[name] ? d.nuclear[name][yi] : 0;
+    const band = bandOf(v);
+    /* area, not side, carries the measure */
+    const frac = maxSize > 0 ? Math.sqrt(Math.max(0, sizeOf(name)) / maxSize) : 0;
+    const side = Math.max(11, (cell - 4) * frac);
+    const x = ox + (cell - side) / 2, y = oy + (cell - side) / 2;
+    const g2 = el("g");
+    g2.appendChild(el("rect", { x: ox, y: oy, width: cell, height: cell, rx: 4,
+      fill: "none", stroke: "var(--line)", "stroke-width": 1,
+      "stroke-dasharray": isDummy ? "3 2" : "none" }));
+    g2.appendChild(el("rect", { x, y, width: side, height: side, rx: 3,
+      fill: band === null ? "var(--n0)" : steps[band],
+      stroke: isDummy ? "var(--line-strong)" : "var(--surface)",
+      "stroke-width": 1.5, "stroke-dasharray": isDummy ? "3 2" : "none" }));
+    const ink = band === 2 ? "var(--onfill)" : "var(--ink)";
+    const t = el("text", { x: ox + cell / 2, y: oy + cell / 2 - 1, "text-anchor": "middle",
+      fill: side > 26 ? ink : "var(--muted)", "font-size": 8,
+      "font-weight": band === null ? 400 : 600 });
+    t.textContent = (name.length > 6 ? name.slice(0, 5) + "\u2026" : name) +
+      (starred.has(name) ? "*" : "");
+    g2.appendChild(t);
+    if (v > 0 && side > 30) {
+      const n = el("text", { x: ox + cell / 2, y: oy + cell / 2 + 10, "text-anchor": "middle",
+        fill: ink, "font-size": 9, "font-weight": 600, "font-variant-numeric": "tabular-nums" });
+      n.textContent = fmt(v / 1000, 1); g2.appendChild(n);
+    }
+    g2.addEventListener("mousemove", (e) => {
+      const rows2 = [["Nuclear " + year, v > 0 ? fmt(v / 1000, 2) + " GW" : "none",
+        v > 0 ? steps[band] : null]];
+      const dem = d.provDemand && d.provDemand[name];
+      rows2.push(["Generation",
+        fmt(ORDER.reduce((s2, k) => s2 + ((d.provProd[name] || {})[k]
+          ? d.provProd[name][k][yi] : 0), 0) * TWH, 1) + " TWh"]);
+      if (dem) rows2.push(["Demand", fmt(dem[yi] * TWH, 1) + " TWh"]);
+      if (MAPSIZE !== "Total" && MAPSIZE !== "Demand")
+        rows2.push([MAPSIZE, fmt(sizeOf(name) * TWH, 1) + " TWh"]);
+      (linksOf[name] || []).slice(0, 5).forEach((k) =>
+        rows2.push([(k[2] === "out" ? "\u2192 " : "\u2190 ") + k[0], fmt(k[1] / 1000, 1) + " GW"]));
+      if ((linksOf[name] || []).length > 5)
+        rows2.push(["\u2026", (linksOf[name].length - 5) + " more links"]);
+      showTip(tip, mount.parentElement, e, isDummy ? "Dummy \u2014 storage region" : name, rows2);
+    });
+    svg.appendChild(g2);
+  });
+
+  /* arrows last, so they sit on top */
+  if (SHOWLINKS) {
+    const wide = Math.max.apply(null, d.links.map((l) => l[2]));
+    d.links.forEach((l) => {
+      const [a, b, mw] = l;
+      if (a === "Dummy" || b === "Dummy") return;
+      const p = mid(a), q = mid(b);
+      if (!p || !q) return;
+      const dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
+      const off = cell * 0.5;
+      const line = el("line", {
+        x1: p[0] + (dx / len) * off, y1: p[1] + (dy / len) * off,
+        x2: q[0] - (dx / len) * off, y2: q[1] - (dy / len) * off,
+        stroke: "var(--muted)", "stroke-width": 0.8 + (mw / wide) * 1.6, opacity: .62,
+        "marker-end": "url(#arw)", "stroke-linecap": "round" });
+      const ttl = el("title");
+      ttl.textContent = a + " \u2192 " + b + "  " + fmt(mw / 1000, 1) + " GW";
+      line.appendChild(ttl);
+      svg.appendChild(line);
+    });
+  }
+  mount.appendChild(svg);
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- chrome ---- */
+function tiles() {
+  const d = DATA.runs[RUN], last = d.years.length - 1;
+  const gen = ORDER.reduce((s, k) => s + d.prod_all[k][last], 0);
+  const cap = ORDER.reduce((s, k) => s + d.cap_all[k][last], 0);
+  const ren = RENEW.reduce((s, k) => s + d.prod_all[k][last], 0);
+  const e0 = d.emission[0], e1 = d.emission[last];
+  const pc = ((e1 - e0) / e0) * 100;
+  const cells = [
+    ["Generation " + d.years[last], fmt(gen * TWH, 0), "TWh", d.years[0] + " \u2192 " + d.years[last]],
+    ["Capacity " + d.years[last], fmt(cap / 1000, 0), "GW", "installed, all sources"],
+    ["Renewable share", fmt((ren / gen) * 100, 1), "%", "wind, hydro and solar"],
+    ["CO2 " + d.years[last], fmt(e1, 0), "Mt", (pc >= 0 ? "+" : "") + fmt(pc, 1) + "% vs " + d.years[0]]
+  ];
+  $("#tiles").innerHTML = cells.map((c) =>
+    '<div class="tile"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+    '<span class="u">' + c[2] + '</span></div><div class="d">' + c[3] + "</div></div>").join("");
+}
+function legendInto(id, keys, paint, label) {
+  $(id).innerHTML = keys.map((k) =>
+    '<span class="it"><span class="sw" style="background:' + paint(k) + '"></span>' +
+    (label ? label(k) : k) + "</span>").join("");
+}
+function legendLines(id, keys, styleOf) {
+  $(id).innerHTML = keys.map((k) => {
+    const s = styleOf(k);
+    return '<span class="it"><span style="width:16px;height:0;flex:none;border-top:2px ' +
+      (s.dash ? "dotted" : "solid") + " " + s.color + '"></span>' + k + "</span>";
+  }).join("");
+}
+function mapLegend() {
+  const d = DATA.runs[RUN];
+  let max = 0;
+  Object.keys(d.nuclear).forEach((p) => d.nuclear[p].forEach((v) => { if (v > max) max = v; }));
+  const b = [0, max / 3, (2 * max) / 3];
+  const items = [["no nuclear", css("n0")],
+    ["< " + fmt(b[1] / 1000, 1) + " GW", css("n1")],
+    [fmt(b[1] / 1000, 1) + "\u2013" + fmt(b[2] / 1000, 1) + " GW", css("n2")],
+    ["> " + fmt(b[2] / 1000, 1) + " GW", css("n3")]];
+  $("#legend5").innerHTML = items.map((i) =>
+    '<span class="it"><span class="sw" style="background:' + i[1] + '"></span>' + i[0] + "</span>").join("");
+}
+function table() {
+  const d = DATA.runs[RUN];
+  let head = "<tr><th>Source</th>";
+  d.years.forEach((y) => { head += "<th>" + y + " TWh</th>"; });
+  d.years.forEach((y) => { head += "<th>" + y + " GW</th>"; });
+  head += "</tr>";
+  const body = ORDER.map((k) =>
+    '<tr><td><span class="sw" style="background:' + fillOf(k) +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + k + "</td>" +
+    d.prod_all[k].map((v) => "<td>" + fmt(v * TWH, 1) + "</td>").join("") +
+    d.cap_all[k].map((v) => "<td>" + fmt(v / 1000, 1) + "</td>").join("") + "</tr>").join("");
+  let head2 = "<tr><th>Cost</th>";
+  d.years.forEach((y) => { head2 += "<th>" + y + " bn US$</th>"; });
+  head2 += "</tr>";
+  const body2 = COSTS.map((k) =>
+    '<tr><td><span class="sw" style="background:' + css(COSTVAR[k]) +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + k + "</td>" +
+    d.cost[k].map((v) => "<td>" + fmt(v / 1e9, 2) + "</td>").join("") + "</tr>").join("");
+  const body3 = FORMS.map((k) =>
+    '<tr><td><span class="sw" style="background:' + css(FORMVAR[k]) +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>Transmission ' +
+    FORMNAME[k] + "</td>" +
+    d.trans[k].map((v) => "<td>" + fmt(v / 1000, 1) + "</td>").join("") + "</tr>").join("");
+  $("#tbl").innerHTML = "<table>" + head + body + "</table>" +
+    '<div style="height:14px"></div><table>' + head2 + body2 + "</table>" +
+    '<div style="height:14px"></div><table><tr><th>Transmission</th>' +
+    d.years.map((y) => "<th>" + y + " GW</th>").join("") + "</tr>" + body3 + "</table>";
+  $("#tbl-sub").textContent = RUN + ", generation, capacity, cost and transmission by year.";
+}
+
+const RSTYLE = (k) => RENEW.indexOf(k) >= 0
+  ? { color: keyOf(k), dash: null }
+  : { color: keyOf(k), dash: k === "Battery" ? "2 3" : "6 3" };
+let RKEYS = [];
+
+function drawDispatch() {
+  const d = DATA.runs[RUN], y = d.years[DISI];
+  $("#dis-yr").textContent = y;
+  $("#dis-sub").textContent = RUN + ", one representative day per season, shared scale.";
+  dispatchGrid($("#dis"), $("#tip-dis"), d.profiles, y);
+}
+function drawMap() {
+  const d = DATA.runs[RUN], y = d.years[MAPI];
+  $("#map-yr").textContent = y;
+  const total = Object.keys(d.nuclear).reduce((s, p) => s + d.nuclear[p][MAPI], 0);
+  const sized = MAPSIZE === "Total" ? "total generation"
+    : MAPSIZE === "Demand" ? "delivered electricity" : MAPSIZE + " generation";
+  $("#map-sub").textContent = RUN + " \u00b7 " + fmt(total / 1000, 1) + " GW nuclear in " + y +
+    " \u00b7 squares sized by " + sized +
+    ". Schematic grid, one square per province \u2014 not a geographic map.";
+  tileMap($("#map"), $("#tip-map"), y, MAPI);
+  mapLegend();
+}
+function draw() {
+  const d = DATA.runs[RUN];
+  tiles();
+  legendInto("#legend", ORDER, fillOf);
+  legendInto("#legend2", ORDER, fillOf);
+  legendInto("#legend3", COSTS, (k) => css(COSTVAR[k]));
+  legendInto("#legend4", ORDER, fillOf);
+  legendInto("#legend8", FORMS, (k) => css(FORMVAR[k]), (k) => FORMNAME[k]);
+  legendLines("#legend6", RKEYS, RSTYLE);
+  legendLines("#legend7", RKEYS, (k) => ({ color: keyOf(k), dash: null }));
+  $("#gen-sub").textContent = RUN + ", labels are TWh a year.";
+  $("#cap-sub").textContent = RUN + ", labels are GW installed.";
+  $("#rgen-sub").textContent = "Renewables solid, storage output dotted. TWh a year.";
+  $("#rcap-sub").textContent = "Renewables and storage, GW installed.";
+  $("#pen-sub").textContent = "Share of total generation, per cent.";
+  $("#trans-sub").textContent = RUN + ", GW of inter-province transmission capacity.";
+  $("#cost-sub").textContent = RUN + ", labels are billion US$ a year.";
+  $("#emi-sub").textContent = RUN + " only, million tonnes a year.";
+
+  stackedBars($("#gen"), $("#tip-gen"), d.years, d.prod_all, ORDER, fillOf, "TWh", TWH, 0);
+  stackedBars($("#cap"), $("#tip-cap"), d.years, d.cap_all, ORDER, fillOf, "GW", 1 / 1000, 0);
+  lineChart($("#rgen"), $("#tip-rgen"), d.years, d.prod_all, RKEYS, RSTYLE, "TWh", TWH, 0);
+  lineChart($("#rcap"), $("#tip-rcap"), d.years, d.cap_all, RKEYS,
+    (k) => ({ color: keyOf(k), dash: null }), "GW", 1 / 1000, 0);
+
+  const tot = d.years.map((_, i) => ORDER.reduce((s, k) => s + d.prod_all[k][i], 0));
+  const pen = {
+    Renewables: d.years.map((_, i) => RENEW.reduce((s, k) => s + d.prod_all[k][i], 0) / tot[i] * 100),
+    Nuclear: d.years.map((_, i) => d.prod_all.Nuclear[i] / tot[i] * 100)
+  };
+  lineChart($("#pen"), $("#tip-pen"), d.years, pen, ["Renewables", "Nuclear"],
+    (k) => ({ color: k === "Nuclear" ? css("Nuclear") : "var(--accent)", dash: null }), "%", 1, 1);
+
+  stackedBars($("#trans"), $("#tip-trans"), d.years, d.trans, FORMS,
+    (k) => css(FORMVAR[k]), "GW", 1 / 1000, 0, (k) => FORMNAME[k]);
+  stackedBars($("#cost"), $("#tip-cost"), d.years, d.cost, COSTS,
+    (k) => css(COSTVAR[k]), "bn US$", 1e-9, 2);
+  emissions($("#emi"), $("#tip-emi"));
+  drawDispatch(); drawMap(); table();
+}
+function fillSelects() {
+  $("#run").innerHTML = Object.keys(DATA.runs).map((r) =>
+    "<option" + (r === RUN ? " selected" : "") + ">" + r + "</option>").join("");
+  const ys = DATA.runs[RUN].years, last = ys.length - 1;
+  DISI = Math.min(DISI, last); MAPI = Math.min(MAPI, last);
+  ["dis", "map"].forEach((p) => {
+    const s = $("#" + p + "-year");
+    s.max = last; s.value = p === "dis" ? DISI : MAPI;
+    $("#" + p + "-lo").textContent = ys[0];
+    $("#" + p + "-hi").textContent = ys[last];
+  });
+  $("#mapsize").innerHTML = ['<option value="Total"' + (MAPSIZE === "Total" ? " selected" : "") +
+    ">Total generation</option>",
+    '<option value="Demand"' + (MAPSIZE === "Demand" ? " selected" : "") +
+    ">Demand (delivered)</option>"].concat(ORDER.map((k) =>
+    '<option value="' + k + '"' + (MAPSIZE === k ? " selected" : "") + ">" + k + "</option>")).join("");
+}
+
+$("#run").addEventListener("change", (e) => {
+  RUN = e.target.value;
+  const last = DATA.runs[RUN].years.length - 1;
+  DISI = last; MAPI = last;
+  fillSelects(); draw();
+});
+$("#dis-year").addEventListener("input", (e) => { DISI = +e.target.value; drawDispatch(); });
+$("#map-year").addEventListener("input", (e) => { MAPI = +e.target.value; drawMap(); });
+$("#mapsize").addEventListener("change", (e) => { MAPSIZE = e.target.value; drawMap(); });
+$("#showlinks").addEventListener("click", (e) => {
+  SHOWLINKS = !SHOWLINKS;
+  e.currentTarget.setAttribute("aria-pressed", String(SHOWLINKS));
+  drawMap();
+});
+$("#astable").addEventListener("click", (e) => {
+  TABLE = !TABLE;
+  e.currentTarget.setAttribute("aria-pressed", String(TABLE));
+  $("#tablecard").hidden = !TABLE;
+});
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(redraw, 30));
+new MutationObserver(() => setTimeout(redraw, 30))
+  .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+function redraw() { if (DATA && DATA.runs[RUN]) draw(); }
+
+/* ---- loading, and reloading when a new run has been processed ---- */
+function applyData(d) {
+  DATA = d;
+  ORDER = d.order; COSTS = d.costOrder; TILES = d.tiles;
+  RENEW = d.renew; FORMS = d.forms;
+  TWH = d.twhPerMWyr; SLICE = d.sliceFrac;
+  RKEYS = RENEW.concat(["Battery", "Pumped"]);
+}
+function setStatus(text, bad) {
+  const s = $("#status");
+  s.textContent = text;
+  s.style.color = bad ? "var(--bad)" : "var(--muted)";
+}
+async function load(first) {
+  if (INLINE) {
+    applyData(INLINE);
+    $("#refresh").hidden = true;
+    setStatus("snapshot · " + Object.keys(INLINE.runs).length + " run(s)");
+  } else {
+    $("#refresh").disabled = true;
+    setStatus("reading results folder…");
+    try {
+      const r = await fetch("api/data", { cache: "no-store" });
+      if (!r.ok) throw new Error("server said " + r.status);
+      applyData(await r.json());
+    } catch (err) {
+      setStatus("could not read the results: " + err.message +
+        " — is results_viz.py still running?", true);
+      $("#refresh").disabled = false;
+      return;
+    }
+    $("#refresh").disabled = false;
+  }
+  const runs = Object.keys(DATA.runs);
+  if (!runs.length) {
+    setStatus("no processed runs found — run process_results.py first", true);
+    $("#tiles").innerHTML = "";
+    return;
+  }
+  if (runs.indexOf(RUN) < 0) RUN = runs[0];
+  if (first || DISI == null) { DISI = DATA.runs[RUN].years.length - 1; MAPI = DISI; }
+  DISI = Math.min(DISI, DATA.runs[RUN].years.length - 1);
+  MAPI = Math.min(MAPI, DATA.runs[RUN].years.length - 1);
+  if (!INLINE) {
+    setStatus(runs.length + " run(s) · " + runs.join(", ") +
+      " · refreshed " + DATA.refreshed);
+  }
+  if (DATA.skipped && DATA.skipped.length) {
+    setStatus(DATA.skipped.length + " run(s) could not be read: " +
+      DATA.skipped.join("; "), true);
+  }
+  fillSelects(); draw();
+}
+$("#refresh").addEventListener("click", () => load(false));
+
+load(true);
+</script>

@@ -1,0 +1,5 @@
+main,input_fn,input_fd,make,add_storage
+CN,NW3,E:/Work/benchmark/input_China/,0,1
+CN,NW2,E:/Work/benchmark/input_China/,0,0
+CCN,NW3,E:/Work/benchmark/input_China/,1,1
+CN2,NW3,E:/Work/benchmark/input_China2/,1,0

@@ -1,0 +1,479 @@
+<title>MESSAGE workbench</title>
+
+<style>
+  :root {
+    --ground:#F7F8FA; --surface:#FFFFFF; --inset:#F1F3F6; --line:#E1E5EB;
+    --line-strong:#C7CFD9; --ink:#131A22; --muted:#66727F;
+    --accent:#0B6E70; --accent-ink:#FFFFFF; --accent-soft:#E4F0F0;
+    --ok:#1E7A4C; --ok-soft:#E4F2EA;
+    --warn:#8F5D00; --warn-soft:#FAEFD9;
+    --bad:#A93A32; --bad-soft:#FAE8E6;
+    --idle:#66727F; --idle-soft:#ECEFF3;
+    --sans: ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono: ui-monospace,"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      --ground:#10151B; --surface:#171E26; --inset:#121820; --line:#273039;
+      --line-strong:#3A4552; --ink:#E6EBF1; --muted:#8B98A6;
+      --accent:#55C0BF; --accent-ink:#08221F; --accent-soft:#14313A;
+      --ok:#63C48E; --ok-soft:#10291E;
+      --warn:#D6A445; --warn-soft:#2A2113;
+      --bad:#E07C71; --bad-soft:#2D1917;
+      --idle:#8B98A6; --idle-soft:#1E2630;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#10151B; --surface:#171E26; --inset:#121820; --line:#273039;
+    --line-strong:#3A4552; --ink:#E6EBF1; --muted:#8B98A6;
+    --accent:#55C0BF; --accent-ink:#08221F; --accent-soft:#14313A;
+    --ok:#63C48E; --ok-soft:#10291E;
+    --warn:#D6A445; --warn-soft:#2A2113;
+    --bad:#E07C71; --bad-soft:#2D1917;
+    --idle:#8B98A6; --idle-soft:#1E2630;
+  }
+
+  body { background:var(--ground); color:var(--ink); font-family:var(--sans);
+         font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1120px; margin:0 auto; padding:28px 24px 56px;
+          display:flex; flex-direction:column; gap:20px; }
+
+  .bar { display:flex; align-items:baseline; justify-content:space-between;
+         flex-wrap:wrap; gap:8px 20px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+  .bar h1 { font-size:17px; font-weight:600; letter-spacing:-0.01em; }
+  .bar .where { font-family:var(--mono); font-size:12px; color:var(--muted); }
+
+  .panel { background:var(--surface); border:1px solid var(--line); border-radius:6px;
+           overflow:hidden; }
+  .head { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+          padding:12px 16px; border-bottom:1px solid var(--line); }
+  .head .titles { flex:1 1 240px; min-width:0; }
+  .head h2 { font-size:14px; font-weight:600; }
+  .head p { font-size:12px; color:var(--muted); }
+  .actions { flex:none; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .rule { width:1px; height:22px; background:var(--line); }
+
+  button, select, input[type=text] {
+    font:inherit; font-size:13px; padding:6px 11px; border-radius:5px;
+    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  }
+  button { cursor:pointer; white-space:nowrap; }
+  .primary { background:var(--accent); color:var(--accent-ink); border-color:transparent; }
+  .primary:hover { filter:brightness(1.08); }
+  button[disabled] { background:var(--idle-soft); color:var(--muted);
+                     border-color:transparent; cursor:not-allowed; filter:none; }
+  .ghost:hover { background:var(--inset); }
+  select, input[type=text] { font-family:var(--mono); padding:5px 8px; }
+  input[type=text] { width:100%; }
+  :is(button,select,input):focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  input[type=checkbox] { accent-color:var(--accent); width:14px; height:14px; cursor:pointer; }
+  .count { font-family:var(--mono); font-size:11px; opacity:.75; margin-left:5px; }
+  label.f { font-family:var(--mono); font-size:10.5px; text-transform:uppercase;
+            letter-spacing:0.07em; color:var(--muted); }
+
+  .scroll { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th { text-align:left; font-family:var(--mono); font-weight:400; font-size:10.5px;
+       text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);
+       padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background:var(--inset); }
+  td.file { font-family:var(--mono); font-size:12.5px; }
+  td.dim, .when { color:var(--muted); }
+  .sub { font-family:var(--mono); font-size:10.5px; color:var(--muted);
+         font-weight:400; max-width:230px; overflow:hidden;
+         text-overflow:ellipsis; }
+  .when { font-family:var(--mono); font-size:11.5px; }
+  th.tick, td.tick { width:1%; padding-right:0; }
+  .stage { display:flex; flex-direction:column; gap:2px; align-items:flex-start; }
+
+  .chip { display:inline-flex; align-items:center; gap:5px; padding:2px 8px 2px 6px;
+          border-radius:999px; font-family:var(--mono); font-size:10.5px;
+          text-transform:uppercase; letter-spacing:0.06em;
+          background:var(--idle-soft); color:var(--idle); }
+  .chip::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+  .chip.ok { background:var(--ok-soft); color:var(--ok); }
+  .chip.warn { background:var(--warn-soft); color:var(--warn); }
+  .chip.bad { background:var(--bad-soft); color:var(--bad); }
+
+  tr.adder td { background:var(--inset); }
+  .addform { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .linkish { background:none; border:none; color:var(--accent); padding:4px 0; font-size:13px; }
+  .linkish:hover { text-decoration:underline; }
+  [hidden] { display:none !important; }
+
+  .paths { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+           gap:10px 16px; padding:14px 16px; }
+  .path label { display:block; font-family:var(--mono); font-size:10.5px;
+                text-transform:uppercase; letter-spacing:0.07em; color:var(--muted);
+                margin-bottom:3px; }
+  .pathfoot { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+              padding:0 16px 14px; }
+
+  .msg { font-size:12.5px; padding:0 16px 12px; color:var(--muted); }
+  .msg.bad { color:var(--bad); }
+  .banner { font-size:12.5px; color:var(--muted); }
+  .banner b { color:var(--ink); font-weight:600; }
+</style>
+
+<div class="wrap">
+
+  <div class="bar">
+    <h1>MESSAGE workbench</h1>
+    <span class="where" id="where"></span>
+  </div>
+  <p class="msg bad" id="pywarn" hidden></p>
+
+  <!-- ================= folders ================= -->
+  <section class="panel">
+    <div class="head">
+      <div class="titles">
+        <h2>Folders</h2>
+        <p>Where the scripts look. Saved to settings.json and used by every script, this session and the next.</p>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="paths-toggle" type="button">Show</button>
+      </div>
+    </div>
+    <div id="paths-body" hidden>
+      <div class="paths" id="paths"></div>
+      <div class="pathfoot">
+        <button class="primary" id="paths-save" type="button">Save folders</button>
+        <button class="ghost" id="paths-reset" type="button">Reset to defaults</button>
+        <span class="banner" id="paths-msg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= scenarios ================= -->
+  <section class="panel">
+    <div class="head">
+      <div class="titles">
+        <h2>Scenarios</h2>
+        <p>One row per scenario in create_cases.csv. Tick the ones to act on.</p>
+      </div>
+      <div class="actions">
+        <button class="primary" id="build" type="button">Build<span class="count" id="c-build"></span></button>
+        <div class="rule"></div>
+        <label class="f" for="solver">Solver</label>
+        <select id="solver"></select>
+        <button class="primary" id="solve" type="button">Solve<span class="count" id="c-solve"></span></button>
+        <div class="rule"></div>
+        <button class="primary" id="process" type="button">Process<span class="count" id="c-process"></span></button>
+        <div class="rule"></div>
+        <button class="ghost" id="view" type="button">View results</button>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="tick"><input type="checkbox" id="all" aria-label="Select all scenarios"></th>
+            <th>Workbook</th>
+            <th>Scenario</th>
+            <th>Storage</th>
+            <th>Built</th>
+            <th>Solved</th>
+            <th>Results</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="msg" id="msg"></p>
+  </section>
+
+  <!-- ================= history ================= -->
+  <section class="panel">
+    <div class="head">
+      <div class="titles">
+        <h2>Action log</h2>
+        <p>Every build, solve and process launched from here, kept in actions.csv.</p>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="refresh" type="button">Refresh</button>
+        <span class="banner" id="status"></span>
+      </div>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>When</th><th>Step</th><th>Scenario</th><th>Detail</th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+let STATE = null, SHOWPATHS = false, ADDFD = '', ADDWB = [];
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function chip(cls, text) { return '<span class="chip ' + cls + '">' + esc(text) + "</span>"; }
+function stage(when, doneLabel) {
+  return '<span class="stage">' +
+    (when ? chip("ok", doneLabel) + '<span class="when">' + esc(when) + "</span>"
+          : chip("", "not yet")) + "</span>";
+}
+
+/* ---------- talking to the server ---------- */
+async function api(path, body) {
+  const opt = body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                       body: JSON.stringify(body) } : { cache: "no-store" };
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({ error: "server sent no answer" }));
+  if (!r.ok || j.error) throw new Error(j.error || ("server said " + r.status));
+  return j;
+}
+function say(text, bad) {
+  const m = $("#msg");
+  m.textContent = text || "";
+  m.className = "msg" + (bad ? " bad" : "");
+}
+
+/* ---------- drawing ---------- */
+function render() {
+  const s = STATE;
+  $("#where").textContent = s.paths.create_cases_fp;
+  $("#status").textContent = "refreshed " + s.refreshed;
+
+  /* the steps run under the same python as this server, which may not be the
+     one the project's packages are installed in */
+  const w = $("#pywarn");
+  w.hidden = s.pythonOk;
+  if (!s.pythonOk) {
+    w.textContent = "Build and Process will fail: " + s.python +
+      " cannot import what the scripts need (" + s.pythonWhy +
+      "). Stop the workbench and start it with the python that has pandas, " +
+      "for example the project's .venv.";
+  }
+  $("#solver").innerHTML = s.solvers.map((v) =>
+    '<option value="' + esc(v) + '">' + esc(v) + "</option>").join("");
+
+  /* folders */
+  $("#paths").innerHTML = s.editable.map((k) =>
+    '<div class="path"><label for="p-' + k + '">' + esc(s.labels[k] || k) + "</label>" +
+    '<input type="text" id="p-' + k + '" data-key="' + k + '" value="' + esc(s.paths[k]) + '"></div>'
+  ).join("");
+
+  /* scenarios */
+  const rows = s.scenarios.map((sc) =>
+    '<tr data-case="' + esc(sc.case) + '">' +
+    '<td class="tick"><input type="checkbox" aria-label="Select ' + esc(sc.case) + '"></td>' +
+    '<td class="file">' + esc(sc.workbook) +
+      '<div class="sub">' + esc(sc.input_fd) + "</div></td>" +
+    '<td class="file">' + esc(sc.case) + "</td>" +
+    '<td class="' + (sc.add_storage ? "" : "dim") + '">' +
+      (sc.add_storage ? "on" : "off") + "</td>" +
+    "<td>" + stage(sc.built, "built") + "</td>" +
+    "<td>" + stage(sc.solved, "solved") + "</td>" +
+    "<td>" + stage(sc.processed, "processed") + "</td>" +
+    '<td class="dim"><button class="linkish" data-remove="' + esc(sc.case) + '" type="button">Remove</button></td>' +
+    "</tr>").join("");
+
+  /* the folder is part of the scenario, not a global setting: two scenarios
+     can be built from two different sets of province workbooks */
+  const adder =
+    '<tr class="adder"><td colspan="8">' +
+    '<button class="linkish" id="open-add" type="button">+ Add scenario</button>' +
+    '<div id="add-form" hidden>' +
+      '<div class="addform" style="margin-bottom:8px">' +
+        '<label class="f" for="new-fd">Workbook folder</label>' +
+        '<input type="text" id="new-fd" value="' + esc(ADDFD || s.paths.input_fd) +
+          '" style="flex:1;min-width:280px">' +
+        '<button class="ghost" id="new-fd-list" type="button">List workbooks</button>' +
+        '<span class="banner" id="new-fd-msg"></span>' +
+      "</div>" +
+      '<div class="addform">' +
+        '<label class="f" for="new-wb">Workbook</label><select id="new-wb"></select>' +
+        '<label class="f" for="new-main">Prefix</label>' +
+        '<input type="text" id="new-main" value="CN" size="6" style="width:70px">' +
+        '<label class="f">Scenario</label><span class="file" id="new-preview"></span>' +
+        '<label class="f"><input type="checkbox" id="new-sto"> storage</label>' +
+        '<span style="flex:1"></span>' +
+        '<button class="primary" id="add-save" type="button">Add to create_cases.csv</button>' +
+        '<button class="ghost" id="add-cancel" type="button">Cancel</button>' +
+      "</div>" +
+    "</div></td></tr>";
+
+  $("#rows").innerHTML = rows + adder;
+
+  $("#history").innerHTML = s.history.length
+    ? s.history.map((h) =>
+        '<tr><td class="when">' + esc(h.when) + "</td><td>" + esc(h.step) + "</td>" +
+        '<td class="file">' + esc(h.scenario) + '</td><td class="dim">' + esc(h.detail) + "</td></tr>").join("")
+    : '<tr><td colspan="4" class="dim">nothing launched from here yet</td></tr>';
+
+  $("#paths-body").hidden = !SHOWPATHS;
+  $("#paths-toggle").textContent = SHOWPATHS ? "Hide" : "Show";
+  wireRows();
+  refreshCounts();
+}
+
+function picked() {
+  return $$("#rows tr[data-case] input[type=checkbox]")
+    .filter((c) => c.checked)
+    .map((c) => {
+      const cse = c.closest("tr").dataset.case;
+      return STATE.scenarios.find((s) => s.case === cse);
+    });
+}
+function refreshCounts() {
+  const n = picked().length;
+  ["build", "solve", "process"].forEach((k) => {
+    $("#c-" + k).textContent = n ? n : "";
+    $("#" + k).disabled = n === 0;
+  });
+  const all = $$("#rows tr[data-case] input[type=checkbox]");
+  $("#all").checked = all.length > 0 && all.every((c) => c.checked);
+}
+
+function wireRows() {
+  $$("#rows tr[data-case] input[type=checkbox]").forEach((c) =>
+    c.addEventListener("change", refreshCounts));
+  $$("[data-remove]").forEach((b) => b.addEventListener("click", () => remove(b.dataset.remove)));
+
+  const preview = () => {
+    const wb = ($("#new-wb").value || "").replace(/\.xlsx$/i, "");
+    const main = $("#new-main").value.trim() || "CN";
+    $("#new-preview").textContent = wb ? main + "_" + wb : "—";
+  };
+  if ($("#open-add")) {
+    $("#open-add").addEventListener("click", async () => {
+      $("#open-add").hidden = true; $("#add-form").hidden = false;
+      await listWorkbooks(); preview();
+    });
+    $("#add-cancel").addEventListener("click", () => {
+      $("#add-form").hidden = true; $("#open-add").hidden = false;
+    });
+    $("#new-fd-list").addEventListener("click", async () => {
+      await listWorkbooks(); preview();
+    });
+    $("#new-fd").addEventListener("change", async () => {
+      await listWorkbooks(); preview();
+    });
+    $("#new-wb").addEventListener("change", preview);
+    $("#new-main").addEventListener("input", preview);
+    $("#add-save").addEventListener("click", add);
+    if (ADDWB.length) fillWorkbookSelect(ADDWB);
+  }
+}
+
+/* the workbooks in whatever folder the add form is pointing at */
+async function listWorkbooks() {
+  const fd = $("#new-fd").value.trim();
+  ADDFD = fd;
+  const msg = $("#new-fd-msg");
+  if (!fd) { msg.textContent = "give a folder"; ADDWB = []; fillWorkbookSelect([]); return; }
+  try {
+    const j = await api("/api/workbooks?fd=" + encodeURIComponent(fd));
+    ADDWB = j.workbooks;
+    fillWorkbookSelect(j.workbooks);
+    msg.textContent = !j.exists ? "folder not found"
+      : j.workbooks.length ? j.workbooks.length + " workbook(s)"
+      : "no .xlsx in there";
+  } catch (err) { msg.textContent = err.message; ADDWB = []; fillWorkbookSelect([]); }
+}
+function fillWorkbookSelect(list) {
+  const sel = $("#new-wb");
+  if (!sel) return;
+  sel.innerHTML = list.length
+    ? list.map((w) => "<option>" + esc(w) + "</option>").join("")
+    : '<option value="">—</option>';
+}
+
+/* ---------- writing create_cases.csv ---------- */
+async function saveScenarios(list, note) {
+  try {
+    const j = await api("/api/scenarios", { scenarios: list });
+    STATE = j.state; render(); say(note || j.said);
+  } catch (err) { say(err.message, true); }
+}
+function add() {
+  const wb = ($("#new-wb").value || "").replace(/\.xlsx$/i, "");
+  const main = $("#new-main").value.trim() || "CN";
+  if (!wb) { say("pick a workbook first", true); return; }
+  if (!$("#new-fd").value.trim()) { say("give a workbook folder first", true); return; }
+  const name = main + "_" + wb;
+  if (STATE.scenarios.some((s) => s.case === name)) {
+    say(name + " is already in create_cases.csv", true); return;
+  }
+  const list = STATE.scenarios.map((s) => ({ main: s.main, input_fn: s.input_fn,
+    input_fd: s.input_fd, make: s.make, add_storage: s.add_storage }));
+  list.push({ main: main, input_fn: wb, input_fd: $("#new-fd").value.trim(),
+    make: 0, add_storage: $("#new-sto").checked ? 1 : 0 });
+  saveScenarios(list, name + " added to create_cases.csv");
+}
+function remove(name) {
+  const list = STATE.scenarios.filter((s) => s.case !== name).map((s) => ({
+    main: s.main, input_fn: s.input_fn, input_fd: s.input_fd,
+    make: s.make, add_storage: s.add_storage }));
+  saveScenarios(list, name + " removed from create_cases.csv");
+}
+
+/* ---------- launching ---------- */
+async function run(step) {
+  const cases = step === "view" ? [] : picked();
+  if (step !== "view" && !cases.length) { say("nothing selected", true); return; }
+  say("launching…");
+  try {
+    const j = await api("/api/run", { step: step, solver: $("#solver").value,
+      scenarios: cases.map((c) => ({ case: c.case, input_fd: c.input_fd, input_fn: c.input_fn })) });
+    STATE = j.state; render(); say(j.said);
+  } catch (err) { say(err.message, true); }
+}
+
+/* ---------- events ---------- */
+$("#all").addEventListener("change", (e) => {
+  $$("#rows tr[data-case] input[type=checkbox]").forEach((c) => { c.checked = e.target.checked; });
+  refreshCounts();
+});
+$("#build").addEventListener("click", () => run("build"));
+$("#solve").addEventListener("click", () => run("solve"));
+$("#process").addEventListener("click", () => run("process"));
+$("#view").addEventListener("click", async () => {
+  /* the viewer is started with --no-browser, so exactly one tab is opened
+     here. if it was already running there is nothing to wait for */
+  say("starting the results viewer…");
+  try {
+    const j = await api("/api/run", { step: "view", scenarios: [] });
+    STATE = j.state; render();
+    const wait = j.said === "started" ? 2500 : 0;
+    say(j.said === "started" ? "viewer starting, opening a tab…" : "viewer already running");
+    setTimeout(() => window.open(STATE.viewerUrl, "_blank"), wait);
+  } catch (err) { say(err.message, true); }
+});
+$("#refresh").addEventListener("click", load);
+$("#paths-toggle").addEventListener("click", () => { SHOWPATHS = !SHOWPATHS; render(); });
+$("#paths-save").addEventListener("click", async () => {
+  const paths = {};
+  $$("#paths input[data-key]").forEach((i) => { paths[i.dataset.key] = i.value.trim(); });
+  try {
+    const j = await api("/api/paths", { paths: paths });
+    STATE = j.state; SHOWPATHS = true; render();
+    $("#paths-msg").textContent = "saved · scripts will use these from now on";
+  } catch (err) { $("#paths-msg").textContent = err.message; }
+});
+$("#paths-reset").addEventListener("click", () => {
+  STATE.editable.forEach((k) => { $("#p-" + k).value = STATE.defaults[k]; });
+  $("#paths-msg").textContent = "defaults filled in — press Save to keep them";
+});
+
+async function load() {
+  try {
+    STATE = await api("/api/state");
+    render();
+  } catch (err) {
+    $("#status").textContent = "cannot reach the workbench — is workbench.py running?";
+    say(err.message, true);
+  }
+}
+load();
+</script>
