@@ -614,7 +614,9 @@ def add_storage_to_scenario(input_fn, input_fd, main_name):
         if not storages:
             continue
         province = province_long[0:6].replace(" ", "")
-        case_name = f"{province_long}_{input_fn}".replace(" ", "")
+        #the same name MESSAGE_trans gives the subregion: the scenario, not
+        #the workbook, so two scenarios from one workbook stay apart
+        case_name = f"{province_long}_{main_name}".replace(" ", "")
         #the storage goes into the staging copy, which MESSAGE_trans.py then
         #copies to the MESSAGE tree once every case is complete
         case_dir = f"{mt.output_base_fd}{case_name}/data"

@@ -1,4 +1,3 @@
 run,path,input_fd,input_fn
-CN_NW3,C:/Programs/MESSAGE_INT/models/CN_NW3/CN_NW3,E:/Work/benchmark/input_China/,NW3
-CN_NW2,C:/Programs/MESSAGE_INT/models/CN_NW2/CN_NW2,E:/Work/benchmark/input_China/,NW2
-CCN_NW3,C:/Programs/MESSAGE_INT/models/CCN_NW3/CCN_NW3,E:/Work/benchmark/input_China/,NW3
+CNV3a_NW,C:/Programs/MESSAGE_INT/models/CNV3a_NW/CNV3a_NW,E:\Work\benchmark\benchmark-V3a\,NW
+CN_NW3,C:/Programs/MESSAGE_INT/models/CN_NW3/CN_NW3,E:\Work\benchmark\input_China\,NW3

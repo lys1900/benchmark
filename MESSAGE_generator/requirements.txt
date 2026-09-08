@@ -1,0 +1,18 @@
+# Packages the MESSAGE workflow needs, on top of Python 3.12 or newer.
+#
+#     pip install -r requirements.txt
+#
+# Python 3.12 is a hard floor: MESSAGE_trans.py reuses a quote character
+# inside an f-string, which earlier versions reject at import.
+#
+# workbench.py and settings.py use only the standard library, so the workbench
+# starts and shows its page without any of this, and warns at the top if the
+# interpreter running it cannot import what a step would need. Solving needs
+# none of these either, only MESSAGE itself.
+#
+# The lower bounds are the versions this has been run with, not the oldest
+# that would work.
+
+pandas>=2.2       # MESSAGE_trans, add_storage, process_results, results_viz
+openpyxl>=3.1     # reading the .xlsx inputs, through pandas
+numpy>=2.0        # MESSAGE_trans

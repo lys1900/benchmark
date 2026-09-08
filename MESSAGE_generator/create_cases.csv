@@ -1,5 +1,3 @@
-main,input_fn,input_fd,make,add_storage
-CN,NW3,E:/Work/benchmark/input_China/,0,1
-CN,NW2,E:/Work/benchmark/input_China/,0,0
-CCN,NW3,E:/Work/benchmark/input_China/,1,1
-CN2,NW3,E:/Work/benchmark/input_China2/,1,0
+main,input_fn,input_fd,make,add_storage,ntrun
+CNV3a,NW,E:\Work\benchmark\benchmark-V3a\,1,0,2
+CN,NW3,E:\Work\benchmark\input_China\,1,1,2

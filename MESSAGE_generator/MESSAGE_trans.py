@@ -275,6 +275,50 @@ def cin_string(case_names_prov):
     return s
 
 
+def set_ntrun(gen_path, ntrun):
+    """
+    the last period the matrix is built for, in the .gen copied from the
+    reference case. the reference says 5, which is only right for a five
+    period model, so it is rewritten to suit the horizon of this scenario
+    """
+    lines = open(gen_path, encoding='utf-8').read().splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if line.split(':')[0].strip() == 'ntrun':
+            comment = line.partition(';')[2]
+            lines[i] = f"ntrun:\t{ntrun}\t;{comment}" if comment else f"ntrun:\t{ntrun}\n"
+            break
+    else:
+        raise SystemExit(f"no ntrun line in {gen_path}, the reference case is not "
+                         f"what was expected")
+    open(gen_path, 'w', encoding='utf-8').write(''.join(lines))
+
+
+def read_constraint_bounds(constraints_properties, constraints_names):
+    """
+    which side of each constraint the values from the Constraints sheet go on.
+
+    the boundtype column of ConstraintsTypes says "upper" or "lower". a
+    constraint which says neither is taken as an upper one, which is how they
+    all behaved before the column existed, and is reported so that a blank
+    cell or a typo is not mistaken for a deliberate choice
+
+    :return: {constraint: 'upper' or 'lower'}
+    """
+    bounds, assumed = {}, []
+    for con in constraints_names:
+        given = str(constraints_properties.get(con, {}).get('boundtype', '')).strip().lower()
+        if given in ('upper', 'lower'):
+            bounds[con] = given
+        else:
+            bounds[con] = 'upper'
+            assumed.append(con if not given or given == 'nan' else f"{con} (says {given!r})")
+    if assumed:
+        print(f"warning: no boundtype for {', '.join(assumed)}, "
+              f"assuming upper")
+
+    return bounds
+
+
 def energyforms_block(levels):
     """
     write the energyforms section of the .adb from the energyforms structure
@@ -378,7 +422,8 @@ def create_reg_func(MESSAGE_mms_fils, case_name, hasmain, mn=""):
 
 ascii_all = ascii_lowercase + ascii_uppercase
 
-def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
+def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
+                      ntrun=None):
     """
     build every case of one scenario: the provinces named in
     runprovince.csv and the multiregional parent which joins them
@@ -420,6 +465,15 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
     days_year = int(general["Days per year"])
     timesteps_day = int(general["Timesteps per day"])
     years = list(input_df_all["Years"]['years'])
+    #the last period the matrix is built for. the Years sheet carries one year
+    #past the horizon, so the periods to solve are one fewer than its rows.
+    #create_cases.csv can override it per scenario
+    if not ntrun:
+        ntrun = len(years) - 1
+        print(f"  ntrun {ntrun}, from {len(years)} years in the sheet")
+    else:
+        ntrun = int(ntrun)
+        print(f"  ntrun {ntrun}, as set in create_cases.csv")
     year0 = int(years[0])  #first milestone year, taken from the Years sheet
     baseyear = year0 - 1
     yearx = years[-1]
@@ -465,6 +519,7 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
     constraints_names = list(constraints.columns)
     constraints_types = input_df_all["ConstraintsTypes"].groupby('type')['constraint'].apply(list).to_dict()
     constraints_properties = input_df_all["ConstraintsTypes"].set_index('constraint').to_dict('index')
+    constraint_bounds = read_constraint_bounds(constraints_properties, constraints_names)
     #TechMap
     tech_map = input_df_all["TechMap"]
     tech_map = strstrip(tech_map, ['Technology name', 'Technology', 'Technology Type'])
@@ -546,7 +601,11 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
     if not os.path.exists(output_base_fd):
         os.makedirs(output_base_fd)
 
-    case_names_prov = [f'{p}_{input_fn}'.replace(" ", "") for p in province_list]
+    #subregions carry the scenario name, not the workbook name. MESSAGE looks
+    #a subregion up in mms_fils/mms.pro, which is shared by every scenario, so
+    #naming them after the workbook made two scenarios built from the same
+    #workbook read each other's subregions
+    case_names_prov = [f'{p}_{main_name}'.replace(" ", "") for p in province_list]
     if generate_main:
         output_main_fd = f"{output_base_fd}/{main_name}/"
         if os.path.exists(output_main_fd) and os.path.isdir(output_main_fd):
@@ -1004,8 +1063,8 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
             counter_line = 0
             for id, line in interconnection_main.iterrows():
                 tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"
-                          f"    minp  {lvl_elecdist}-{line['from']}_{input_fn} 1.\n"
-                          f"    moutp {lvl_elecdist}-{line['to']}_{input_fn} c {numstr(ic_param['efficiency'])}\n"
+                          f"    minp  {lvl_elecdist}-{line['from']}_{main_name} 1.\n"
+                          f"    moutp {lvl_elecdist}-{line['to']}_{main_name} c {numstr(ic_param['efficiency'])}\n"
                           f"    pll	c {numstr(ic_param['lifetime'])}\n"
                           f"    inv	c {float(ic_param['inv'])}\n"
                           f"    fom	c {float(ic_param['fom'])}\n"
@@ -1030,12 +1089,17 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
                             f"*"
                             )
             for con in constraints_names:
+                #the values go on whichever side ConstraintsTypes asks for
+                values = ' '.join(str(i) for i in constraints[con])
+                if constraint_bounds[con] == 'lower':
+                    bounds_s = f"    upper	c 0\n    lower	ts {values} \n"
+                else:
+                    bounds_s = f"    upper	ts {values} \n    lower	c 0\n"
                 relations1_s += (f"\n"
                                  f"{con} {con[:4]} o\n"
                                  f"    units	group: capacity, type: power, cost:US$'00/kWyr, upper:MWyr, lower:MWyr\n"
                                  f"    for_ldr	none\n"
-                                 f"    upper	ts {' '.join(str(i) for i in constraints[con])} \n"
-                                 f"    lower	c 0\n"
+                                 f"{bounds_s}"
                                  f"    type	None\n"
                                  f"*"
                                  )
@@ -1158,9 +1222,12 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s):
             file.write(ldr_string)
 
         # .gen file
+        #every case is solved over the same horizon, so every .gen gets ntrun
+        gen_new_path = f'{output_fd}/data/{case_name}.gen'
+        set_ntrun(gen_new_path, ntrun)
+
         #add a line to gen file
         if case_name == main_name and generate_main:
-            gen_new_path = f'{output_fd}/data/{case_name}.gen'
             with open(gen_new_path, 'a') as file:
                 file.write(subregion_s)
 
@@ -1281,7 +1348,10 @@ if __name__ == '__main__':
     for _, scenario in read_create_cases(create_cases_fp).iterrows():
         main_name = f"{scenario['main']}_{scenario['input_fn']}"
         with_storage = scenario['add_storage'] == 1
+        #a blank ntrun means work it out from the Years sheet
+        ntrun = scenario.get('ntrun')
+        ntrun = None if pd.isna(ntrun) or not ntrun else int(ntrun)
         print(f"=== {scenario['input_fn']} -> {main_name}"
               f"{' with storage' if with_storage else ''} ===")
         bat_all_s = generate_scenario(scenario['input_fn'], scenario['input_fd'],
-                                      main_name, with_storage, bat_all_s)
+                                      main_name, with_storage, bat_all_s, ntrun)

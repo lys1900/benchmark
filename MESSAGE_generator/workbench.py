@@ -77,6 +77,22 @@ def stamp(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path)).strftime('%d %b %Y %H:%M')
 
 
+def newer_than(path, than):
+    """
+    whether path was written after than.
+
+    a case is seeded by copying the reference case, which carries a res folder
+    of its own, so the mere presence of a result file does not mean this model
+    was solved. the same goes for results processed before the last solve
+    """
+    if not os.path.exists(path):
+        return None
+    if not than or not os.path.exists(than):
+        return True
+
+    return os.path.getmtime(path) > os.path.getmtime(than)
+
+
 def case_fd(paths, case):
     """the case folder in the MESSAGE tree"""
     return f"{paths['MESSAGE_fd']}models/{case}/{case}"
@@ -96,7 +112,9 @@ def read_scenarios(paths):
                          'input_fn': str(r['input_fn']).strip(),
                          'input_fd': str(r['input_fd']).strip(),
                          'make': int(float(r.get('make') or 0)),
-                         'add_storage': int(float(r.get('add_storage') or 0))})
+                         'add_storage': int(float(r.get('add_storage') or 0)),
+                         #blank means work it out from the Years sheet
+                         'ntrun': str(r.get('ntrun') or '').strip()})
 
     return rows
 
@@ -110,10 +128,11 @@ def write_scenarios(paths, rows):
     os.makedirs(os.path.dirname(fp) or '.', exist_ok=True)
     with open(fp, 'w', newline='') as f:
         w = csv.writer(f)
-        w.writerow(['main', 'input_fn', 'input_fd', 'make', 'add_storage'])
+        w.writerow(['main', 'input_fn', 'input_fd', 'make', 'add_storage', 'ntrun'])
         for r in rows:
             w.writerow([r['main'], r['input_fn'], r['input_fd'],
-                        int(r.get('make', 0)), int(r.get('add_storage', 0))])
+                        int(r.get('make', 0)), int(r.get('add_storage', 0)),
+                        str(r.get('ntrun') or '').strip()])
 
 
 def write_process_control(paths, cases):
@@ -183,6 +202,10 @@ def state():
             'built': stamp(f"{fd}/data/{case}.adb"),
             'solved': stamp(f"{fd}/res/{case}_adb.txt"),
             'processed': stamp(f"{paths['results_fd']}{case}/prod_all.csv"),
+            #None not there, False there but older than the step before it
+            'solvedFresh': newer_than(f"{fd}/res/{case}_adb.txt", f"{fd}/data/{case}.adb"),
+            'processedFresh': newer_than(f"{paths['results_fd']}{case}/prod_all.csv",
+                                         f"{fd}/res/{case}_adb.txt"),
             'solvers_ready': [v for v in SOLVERS
                               if os.path.exists(f"{fd}/run_{v}_{case}_adb.bat")],
         })

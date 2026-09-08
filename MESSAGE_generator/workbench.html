@@ -96,6 +96,7 @@
   .chip.ok { background:var(--ok-soft); color:var(--ok); }
   .chip.warn { background:var(--warn-soft); color:var(--warn); }
   .chip.bad { background:var(--bad-soft); color:var(--bad); }
+  .stalenote { font-size:11.5px; color:var(--muted); padding:0 16px 12px; }
 
   tr.adder td { background:var(--inset); }
   .addform { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -173,6 +174,7 @@
             <th>Workbook</th>
             <th>Scenario</th>
             <th>Storage</th>
+            <th>ntrun</th>
             <th>Built</th>
             <th>Solved</th>
             <th>Results</th>
@@ -183,6 +185,9 @@
       </table>
     </div>
     <p class="msg" id="msg"></p>
+    <p class="stalenote">A stage reads <b>stale</b> when its file is older than the step
+      before it &mdash; a freshly built case still carries the reference case&rsquo;s
+      result files, and results can predate the last solve.</p>
   </section>
 
   <!-- ================= history ================= -->
@@ -217,10 +222,15 @@ function esc(s) {
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 function chip(cls, text) { return '<span class="chip ' + cls + '">' + esc(text) + "</span>"; }
-function stage(when, doneLabel) {
-  return '<span class="stage">' +
-    (when ? chip("ok", doneLabel) + '<span class="when">' + esc(when) + "</span>"
-          : chip("", "not yet")) + "</span>";
+function stage(when, doneLabel, fresh) {
+  /* fresh === false means the file is there but older than the step before
+     it: a case seeded from the reference case carries its res folder, and
+     results can predate the last solve */
+  if (!when) return '<span class="stage">' + chip("", "not yet") + "</span>";
+  const body = fresh === false
+    ? chip("warn", "stale") + '<span class="when">' + esc(when) + "</span>"
+    : chip("ok", doneLabel) + '<span class="when">' + esc(when) + "</span>";
+  return '<span class="stage">' + body + "</span>";
 }
 
 /* ---------- talking to the server ---------- */
@@ -272,16 +282,17 @@ function render() {
     '<td class="file">' + esc(sc.case) + "</td>" +
     '<td class="' + (sc.add_storage ? "" : "dim") + '">' +
       (sc.add_storage ? "on" : "off") + "</td>" +
+    '<td class="dim">' + esc(sc.ntrun || "auto") + "</td>" +
     "<td>" + stage(sc.built, "built") + "</td>" +
-    "<td>" + stage(sc.solved, "solved") + "</td>" +
-    "<td>" + stage(sc.processed, "processed") + "</td>" +
+    "<td>" + stage(sc.solved, "solved", sc.solvedFresh) + "</td>" +
+    "<td>" + stage(sc.processed, "processed", sc.processedFresh) + "</td>" +
     '<td class="dim"><button class="linkish" data-remove="' + esc(sc.case) + '" type="button">Remove</button></td>' +
     "</tr>").join("");
 
   /* the folder is part of the scenario, not a global setting: two scenarios
      can be built from two different sets of province workbooks */
   const adder =
-    '<tr class="adder"><td colspan="8">' +
+    '<tr class="adder"><td colspan="9">' +
     '<button class="linkish" id="open-add" type="button">+ Add scenario</button>' +
     '<div id="add-form" hidden>' +
       '<div class="addform" style="margin-bottom:8px">' +
@@ -296,6 +307,8 @@ function render() {
         '<label class="f" for="new-main">Prefix</label>' +
         '<input type="text" id="new-main" value="CN" size="6" style="width:70px">' +
         '<label class="f">Scenario</label><span class="file" id="new-preview"></span>' +
+        '<label class="f" for="new-ntrun">ntrun</label>' +
+        '<input type="text" id="new-ntrun" placeholder="auto" size="4" style="width:64px">' +
         '<label class="f"><input type="checkbox" id="new-sto"> storage</label>' +
         '<span style="flex:1"></span>' +
         '<button class="primary" id="add-save" type="button">Add to create_cases.csv</button>' +
@@ -406,15 +419,16 @@ function add() {
     say(name + " is already in create_cases.csv", true); return;
   }
   const list = STATE.scenarios.map((s) => ({ main: s.main, input_fn: s.input_fn,
-    input_fd: s.input_fd, make: s.make, add_storage: s.add_storage }));
+    input_fd: s.input_fd, make: s.make, add_storage: s.add_storage, ntrun: s.ntrun }));
   list.push({ main: main, input_fn: wb, input_fd: $("#new-fd").value.trim(),
-    make: 0, add_storage: $("#new-sto").checked ? 1 : 0 });
+    make: 0, add_storage: $("#new-sto").checked ? 1 : 0,
+    ntrun: $("#new-ntrun").value.trim() });
   saveScenarios(list, name + " added to create_cases.csv");
 }
 function remove(name) {
   const list = STATE.scenarios.filter((s) => s.case !== name).map((s) => ({
     main: s.main, input_fn: s.input_fn, input_fd: s.input_fd,
-    make: s.make, add_storage: s.add_storage }));
+    make: s.make, add_storage: s.add_storage, ntrun: s.ntrun }));
   saveScenarios(list, name + " removed from create_cases.csv");
 }
 
