@@ -38,6 +38,11 @@ DEFAULTS = {
 EDITABLE = ['orig_base_fd', 'create_cases_fp', 'MESSAGE_fd', 'output_base_fd',
             'process_results_fp', 'results_fd', 'input_fd']
 
+#the ones that name a folder. a file name is joined straight onto these, as in
+#f"{input_fd}{input_fn}.xlsx", so they have to end on a separator. the others
+#name a file and must not be touched
+FOLDERS = {'orig_base_fd', 'MESSAGE_fd', 'output_base_fd', 'results_fd', 'input_fd'}
+
 LABELS = {
     'orig_base_fd': 'Reference case folder',
     'create_cases_fp': 'create_cases.csv',
@@ -47,6 +52,27 @@ LABELS = {
     'results_fd': 'Results folder',
     'input_fd': 'Workbook folder',
 }
+
+
+def as_folder(path):
+    """
+    a folder path a file name can be joined straight onto.
+
+    the separator is added in whichever style the path is already written in,
+    so a windows path typed with backslashes stays that way
+    """
+    path = str(path).strip()
+    if not path or path.endswith(('/', '\\')):
+        return path
+    sep = '\\' if '\\' in path and '/' not in path else '/'
+
+    return path + sep
+
+
+def tidy(values):
+    """every folder ending on a separator, file paths left alone"""
+    return {k: as_folder(v) if k in FOLDERS else str(v).strip()
+            for k, v in values.items()}
 
 
 def load():
@@ -62,13 +88,15 @@ def load():
             #a broken settings file should not stop a build
             print(f"warning: {saved_fp} could not be read ({err}), using the defaults")
 
-    return values
+    #tidied on the way out as well as in, so a settings.json written before
+    #this existed, or edited by hand, still works
+    return tidy(values)
 
 
 def save(values):
     """keep the paths for the next session, ignoring anything unrecognised"""
-    keep = {k: str(v).strip() for k, v in values.items()
-            if k in DEFAULTS and str(v).strip()}
+    keep = tidy({k: v for k, v in values.items()
+                 if k in DEFAULTS and str(v).strip()})
     with open(saved_fp, 'w', encoding='utf-8') as f:
         json.dump(keep, f, indent=2)
 

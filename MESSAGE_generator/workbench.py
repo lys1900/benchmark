@@ -110,7 +110,8 @@ def read_scenarios(paths):
                 continue
             rows.append({'main': str(r['main']).strip(),
                          'input_fn': str(r['input_fn']).strip(),
-                         'input_fd': str(r['input_fd']).strip(),
+                         #a folder joined straight onto a workbook name
+                         'input_fd': settings.as_folder(r['input_fd']),
                          'make': int(float(r.get('make') or 0)),
                          'add_storage': int(float(r.get('add_storage') or 0)),
                          #blank means work it out from the Years sheet
@@ -130,7 +131,7 @@ def write_scenarios(paths, rows):
         w = csv.writer(f)
         w.writerow(['main', 'input_fn', 'input_fd', 'make', 'add_storage', 'ntrun'])
         for r in rows:
-            w.writerow([r['main'], r['input_fn'], r['input_fd'],
+            w.writerow([r['main'], r['input_fn'], settings.as_folder(r['input_fd']),
                         int(r.get('make', 0)), int(r.get('add_storage', 0)),
                         str(r.get('ntrun') or '').strip()])
 
@@ -335,7 +336,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             #which workbooks sit in a folder the user has just typed in
             import urllib.parse
             q = urllib.parse.parse_qs(self.path.partition('?')[2])
-            fd = (q.get('fd') or [''])[0]
+            fd = settings.as_folder((q.get('fd') or [''])[0])
             self.reply({'folder': fd, 'exists': bool(fd) and os.path.isdir(fd),
                         'workbooks': workbooks(fd)})
         elif path in ('/', '/index.html'):

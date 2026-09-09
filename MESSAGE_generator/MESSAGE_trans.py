@@ -1089,12 +1089,11 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
                             f"*"
                             )
             for con in constraints_names:
-                #the values go on whichever side ConstraintsTypes asks for
+                #the values go on whichever side ConstraintsTypes asks for, and
+                #only that side: the other bound is left out so the constraint
+                #is open in that direction
                 values = ' '.join(str(i) for i in constraints[con])
-                if constraint_bounds[con] == 'lower':
-                    bounds_s = f"    upper	c 0\n    lower	ts {values} \n"
-                else:
-                    bounds_s = f"    upper	ts {values} \n    lower	c 0\n"
+                bounds_s = f"    {constraint_bounds[con]}	ts {values} \n"
                 relations1_s += (f"\n"
                                  f"{con} {con[:4]} o\n"
                                  f"    units	group: capacity, type: power, cost:US$'00/kWyr, upper:MWyr, lower:MWyr\n"
