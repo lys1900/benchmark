@@ -134,6 +134,14 @@
       <rect width="7" height="7" fill="var(--Storage)"></rect>
       <line x1="0" y1="0" x2="0" y2="7" stroke="var(--hatch)" stroke-width="2.6"></line>
     </pattern>
+    <pattern id="hx-gas" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="var(--Gas)"></rect>
+      <line x1="0" y1="0" x2="0" y2="7" stroke="var(--hatch)" stroke-width="2.6"></line>
+    </pattern>
+    <pattern id="hx-bio" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="7" height="7" fill="var(--Biomass)"></rect>
+      <line x1="0" y1="0" x2="0" y2="7" stroke="var(--hatch)" stroke-width="2.6"></line>
+    </pattern>
     <marker id="arw" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5"
             orient="auto-start-reverse">
       <path d="M0,1L7,4L0,7Z" fill="var(--muted)"></path>
@@ -150,25 +158,29 @@
     Energy is reported in MWyr and shown here as TWh (&times;8.76).</p>
 
   <div class="filters">
-    <label class="f" for="run">Scenario</label>
+    <label class="f" for="run" data-i18n="scenario">Scenario</label>
     <select id="run"></select>
-    <button class="tgl" id="refresh" type="button">Refresh</button>
+    <label class="f" for="prov" data-i18n="province">Province</label>
+    <select id="prov"></select>
+    <button class="tgl" id="refresh" type="button" data-i18n="refresh">Refresh</button>
     <span class="status" id="status"></span>
     <span style="flex:1"></span>
-    <button class="tgl" id="astable" type="button" aria-pressed="false">Table view</button>
+    <button class="tgl" id="lang" type="button">中文</button>
+    <button class="tgl" id="astable" type="button" aria-pressed="false"
+            data-i18n="tableView">Table view</button>
   </div>
 
   <div class="tiles" id="tiles"></div>
 
   <div class="grid2">
     <section class="card">
-      <header><div><h2>Generation by source</h2><p id="gen-sub"></p></div></header>
+      <header><div><h2 data-i18n="genTitle">Generation by source</h2><p id="gen-sub"></p></div></header>
       <div class="plot"><div id="gen"></div><div class="tip" id="tip-gen"></div></div>
       <div class="legend" id="legend"></div>
     </section>
 
     <section class="card">
-      <header><div><h2>Installed capacity</h2><p id="cap-sub"></p></div></header>
+      <header><div><h2 data-i18n="capTitle">Installed capacity</h2><p id="cap-sub"></p></div></header>
       <div class="plot"><div id="cap"></div><div class="tip" id="tip-cap"></div></div>
       <div class="legend" id="legend2"></div>
     </section>
@@ -176,13 +188,13 @@
 
   <div class="grid2">
     <section class="card">
-      <header><div><h2>Renewable and storage generation</h2><p id="rgen-sub"></p></div></header>
+      <header><div><h2 data-i18n="rgenTitle">Renewable and storage generation</h2><p id="rgen-sub"></p></div></header>
       <div class="plot"><div id="rgen"></div><div class="tip" id="tip-rgen"></div></div>
       <div class="legend" id="legend6"></div>
     </section>
 
     <section class="card">
-      <header><div><h2>Renewable and storage capacity</h2><p id="rcap-sub"></p></div></header>
+      <header><div><h2 data-i18n="rcapTitle">Renewable and storage capacity</h2><p id="rcap-sub"></p></div></header>
       <div class="plot"><div id="rcap"></div><div class="tip" id="tip-rcap"></div></div>
       <div class="legend" id="legend7"></div>
     </section>
@@ -190,12 +202,12 @@
 
   <div class="grid2">
     <section class="card">
-      <header><div><h2>Penetration rate</h2><p id="pen-sub"></p></div></header>
+      <header><div><h2 data-i18n="penTitle">Penetration rate</h2><p id="pen-sub"></p></div></header>
       <div class="plot"><div id="pen"></div><div class="tip" id="tip-pen"></div></div>
     </section>
 
     <section class="card">
-      <header><div><h2>Transmission capacity</h2><p id="trans-sub"></p></div></header>
+      <header><div><h2 data-i18n="transTitle">Transmission capacity</h2><p id="trans-sub"></p></div></header>
       <div class="plot"><div id="trans"></div><div class="tip" id="tip-trans"></div></div>
       <div class="legend" id="legend8"></div>
     </section>
@@ -203,19 +215,19 @@
 
   <div class="grid2">
     <section class="card">
-      <header><div><h2>System cost</h2><p id="cost-sub"></p></div></header>
+      <header><div><h2 data-i18n="costTitle">System cost</h2><p id="cost-sub"></p></div></header>
       <div class="plot"><div id="cost"></div><div class="tip" id="tip-cost"></div></div>
       <div class="legend" id="legend3"></div>
     </section>
 
     <section class="card">
-      <header><div><h2>CO2 emissions</h2><p id="emi-sub"></p></div></header>
+      <header><div><h2 data-i18n="emiTitle">CO2 emissions</h2><p id="emi-sub"></p></div></header>
       <div class="plot"><div id="emi"></div><div class="tip" id="tip-emi"></div></div>
     </section>
   </div>
 
   <section class="card">
-    <header><div><h2>Hourly dispatch</h2><p id="dis-sub"></p></div></header>
+    <header><div><h2 data-i18n="disTitle">Hourly dispatch</h2><p id="dis-sub"></p></div></header>
     <div class="slider">
       <span class="ends" id="dis-lo"></span>
       <input type="range" id="dis-year" min="0" max="2" step="1" value="2" aria-label="Dispatch year">
@@ -226,13 +238,20 @@
     <div class="legend" id="legend4"></div>
   </section>
 
+  <section class="card" id="flowcard">
+    <header><div><h2 data-i18n="flowTitle">Cross-province flows</h2>
+      <p id="flow-sub"></p></div></header>
+    <div class="plot"><div id="flow"></div><div class="tip" id="tip-flow"></div></div>
+    <div class="legend" id="legend9"></div>
+  </section>
+
   <section class="card" id="mapcard">
     <header>
-      <div><h2>Where nuclear is built</h2><p id="map-sub"></p></div>
+      <div><h2 data-i18n="mapTitle">Where nuclear is built</h2><p id="map-sub"></p></div>
       <div class="filters">
-        <label class="f" for="mapsize">Square size</label>
+        <label class="f" for="mapsize" data-i18n="squareSize">Square size</label>
         <select id="mapsize"></select>
-        <button class="tgl" id="showlinks" type="button" aria-pressed="true">Links</button>
+        <button class="tgl" id="showlinks" type="button" aria-pressed="true" data-i18n="links">Links</button>
       </div>
     </header>
     <div class="slider">
@@ -250,7 +269,7 @@
   </section>
 
   <section class="card" id="tablecard" hidden>
-    <header><div><h2>Values</h2><p id="tbl-sub"></p></div></header>
+    <header><div><h2 data-i18n="valuesTitle">Values</h2><p id="tbl-sub"></p></div></header>
     <div class="tblwrap" id="tbl"></div>
   </section>
 </div>
@@ -265,9 +284,12 @@ const COSTVAR = { "Investment": "c3", "Fixed O&M": "c2", "Variable O&M": "c1" };
 const FORMVAR = { "ElectricityVRE": "c1", "ElectricityNonVRE": "c3" };
 const FORMNAME = { "ElectricityVRE": "VRE", "ElectricityNonVRE": "Non-VRE" };
 /* the two textured variants and the hue family each belongs to */
-const TEXTURE = { "Coal CCS": ["url(#hx-coal)", "Coal"], "Pumped": ["url(#hx-sto)", "Storage"] };
-const HUE = { "Coal": "Coal", "Coal CCS": "Coal", "Gas": "Gas", "Nuclear": "Nuclear",
-  "Biomass": "Biomass", "Hydro": "Hydro", "Wind": "Wind", "Solar": "Solar",
+/* a capture variant keeps its family hue and is told apart by the hatch */
+const TEXTURE = { "Coal CCS": "url(#hx-coal)", "Gas CCS": "url(#hx-gas)",
+  "Biomass CCS": "url(#hx-bio)", "Pumped": "url(#hx-sto)" };
+const HUE = { "Coal": "Coal", "Coal CCS": "Coal", "Gas": "Gas", "Gas CCS": "Gas",
+  "Nuclear": "Nuclear", "Biomass": "Biomass", "Biomass CCS": "Biomass",
+  "Hydro": "Hydro", "Wind": "Wind", "Solar": "Solar",
   "Battery": "Storage", "Pumped": "Storage" };
 
 const $ = (s) => document.querySelector(s);
@@ -277,15 +299,203 @@ const SVGNS = "http://www.w3.org/2000/svg";
 const el = (n, a) => { const e = document.createElementNS(SVGNS, n);
   for (const k in (a || {})) e.setAttribute(k, a[k]); return e; };
 /* what a group is painted with: its hue, or a texture over that hue */
-const fillOf = (k) => TEXTURE[k] ? TEXTURE[k][0] : css(HUE[k] || k);
+const fillOf = (k) => TEXTURE[k] || css(HUE[k] || k);
+/* the svg pattern cannot be used as a css background, which is why the
+   textured entries were coming out blank in the legends and tooltips. this
+   draws the same hatch as a gradient, at the same angle as the pattern */
+const HATCH_AT = { "Coal CCS": 45, "Gas CCS": 45, "Biomass CCS": 45, "Pumped": 135 };
+function swatchOf(k) {
+  const base = css(HUE[k] || k), at = HATCH_AT[k];
+  if (!at) return base;
+  return "repeating-linear-gradient(" + at + "deg, " + base + " 0 2px, " +
+    css("hatch") + " 2px 3.6px)";
+}
 const keyOf = (k) => css(HUE[k] || k);
 
 let RUN = "CN_NW3", DISI = 0, MAPI = 0, TABLE = false, SHOWLINKS = true, MAPSIZE = "Total";
+let PROV = "All", LANG = "en", VIEW = null;
+
+/* ---- English and Chinese ----
+   nm() translates a name that came from the data (a fuel family, a province,
+   a cost line); t() translates a label belonging to the page itself */
+const ZH = {
+  /* page */
+  scenario: "情景", province: "省份", refresh: "刷新", tableView: "数据表",
+  allProvinces: "全部省份", squareSize: "方块大小", links: "输电线",
+  totalGeneration: "总发电量", demandDelivered: "用电量（送达）",
+  /* cards */
+  genTitle: "分品种发电量", capTitle: "装机容量",
+  rgenTitle: "可再生能源与储能发电量", rcapTitle: "可再生能源与储能装机",
+  penTitle: "渗透率", transTitle: "输电容量", costTitle: "系统成本",
+  emiTitle: "二氧化碳排放", disTitle: "逐时出力", mapTitle: "核电建设分布",
+  valuesTitle: "数值",
+  /* tiles */
+  generation: "发电量", capacity: "装机容量",
+  renewableShare: "可再生能源占比", co2: "二氧化碳",
+  installedAll: "全部品种装机", windHydroSolar: "风电、水电、太阳能",
+  ofGeneration: "占发电量比重",
+  /* subtitles and units */
+  labelsTwh: "标签单位为每年太瓦时", labelsGw: "标签单位为吉瓦装机",
+  labelsBn: "标签单位为每年十亿美元", shareOfGen: "占总发电量的百分比，%",
+  renSolidStoDotted: "可再生能源为实线，储能出力为点线，单位太瓦时/年",
+  renCapSub: "可再生能源与储能，单位吉瓦",
+  transSub: "省际输电容量，单位吉瓦", emiSub: "单位百万吨/年",
+  disSub: "每个季节一个代表日，纵轴刻度一致", oneDayPerSeason: "每季一个代表日",
+  total: "合计", source: "品种", cost: "成本", transmission: "输电",
+  hour: "时刻", share: "占比", nuclearIn: "核电装机",
+  none: "无", noNuclear: "无核电", moreLinks: "条其他线路",
+  schematic: "示意网格，每省一格，并非地理地图。",
+  sizedBy: "方块大小表示", arrowsNote: "箭头为省际输电线路。",
+  /* fuel families */
+  Coal: "煤电", "Coal CCS": "煤电 CCS", Gas: "天然气", "Gas CCS": "天然气 CCS",
+  Nuclear: "核电", Biomass: "生物质", "Biomass CCS": "生物质 CCS",
+  Hydro: "水电", Wind: "风电", Solar: "太阳能",
+  Battery: "电池储能", Pumped: "抽水蓄能", Renewables: "可再生能源",
+  /* cost lines and transmission forms */
+  Investment: "投资", "Fixed O&M": "固定运维", "Variable O&M": "可变运维",
+  VRE: "可变可再生", "Non-VRE": "非可变可再生",
+  /* seasons */
+  Winter: "冬季", Spring: "春季", Summer: "夏季", Autumn: "秋季", season: "季",
+  demand: "需求", demandNote: "虚线为需求，属输入数据",
+  flowTitle: "省际输电潮流", flowSub: "正为送入，负为送出，单位吉瓦",
+  pickProvince: "请选择单个省份以查看潮流",
+  noFlows: "无潮流数据，需重新生成并处理该情景",
+  importing: "送入", exporting: "送出",
+  /* provinces */
+  Anhui: "安徽", Beijing: "北京", Chongqing: "重庆", Fujian: "福建",
+  Gansu: "甘肃", Guangdong: "广东", Guangxi: "广西", Guizhou: "贵州",
+  Hainan: "海南", Hebei: "河北", Heilongjiang: "黑龙江", Henan: "河南",
+  Hubei: "湖北", Hunan: "湖南", InnerMongolia: "内蒙古", Jiangsu: "江苏",
+  Jiangxi: "江西", Jilin: "吉林", Liaoning: "辽宁", Ningxia: "宁夏",
+  Qinghai: "青海", Shaanxi: "陕西", Shandong: "山东", Shanghai: "上海",
+  Shanxi: "山西", Sichuan: "四川", Tianjin: "天津", Tibet: "西藏",
+  Xinjiang: "新疆", Yunnan: "云南", Zhejiang: "浙江", Dummy: "虚拟区",
+};
+/* the English side only needs the keys that are not already English: a fuel
+   family or a province is its own label, a key like renCapSub is not */
+const EN = {
+  scenario: "Scenario", province: "Province", refresh: "Refresh",
+  tableView: "Table view", allProvinces: "All provinces",
+  squareSize: "Square size", links: "Links",
+  totalGeneration: "Total generation", demandDelivered: "Demand (delivered)",
+  genTitle: "Generation by source", capTitle: "Installed capacity",
+  rgenTitle: "Renewable and storage generation",
+  rcapTitle: "Renewable and storage capacity",
+  penTitle: "Penetration rate", transTitle: "Transmission capacity",
+  costTitle: "System cost", emiTitle: "CO2 emissions",
+  disTitle: "Hourly dispatch", mapTitle: "Where nuclear is built",
+  valuesTitle: "Values",
+  generation: "Generation", capacity: "Capacity",
+  renewableShare: "Renewable share", co2: "CO2",
+  installedAll: "installed, all sources",
+  windHydroSolar: "wind, hydro and solar", ofGeneration: "of generation",
+  labelsTwh: "labels are TWh a year", labelsGw: "labels are GW installed",
+  labelsBn: "labels are billion US$ a year",
+  shareOfGen: "Share of total generation, per cent",
+  renSolidStoDotted: "Renewables solid, storage output dotted, TWh a year",
+  renCapSub: "Renewables and storage, GW installed",
+  transSub: "GW of inter-province transmission capacity",
+  emiSub: "million tonnes a year",
+  disSub: "one representative day per season, shared scale",
+  oneDayPerSeason: "one representative day per season",
+  total: "Total", source: "Source", cost: "Cost", transmission: "Transmission",
+  hour: "hour", share: "Share", nuclearIn: "Nuclear",
+  none: "none", noNuclear: "no nuclear", moreLinks: "more links",
+  schematic: "Schematic grid, one square per province \u2014 not a geographic map.",
+  sizedBy: "squares sized by",
+  arrowsNote: "Arrows are the transmission links between provinces.",
+  Winter: "Winter", Spring: "Spring", Summer: "Summer", Autumn: "Autumn",
+  season: "season",
+  charging: "charging", demand: "Demand",
+  flowTitle: "Cross-province flows",
+  flowSub: "positive is import, negative is export, GW",
+  pickProvince: "pick a single province to see its flows",
+  noFlows: "no flow data — rebuild and reprocess the run to record the interconnector codes",
+  importing: "import", exporting: "export",
+  demandNote: "dashed line is demand, an input",
+  /* the only family whose key is not the label we want to show */
+  Pumped: "Pump storage",
+};
+const nm = (k) => (LANG === "zh" && ZH[k]) ? ZH[k] : (EN[k] || k);
+const t = nm;
+
+/* ---- adding the provinces up ----
+   every figure is stored province by province, so "all provinces" is a sum
+   rather than a second copy of the data */
+function provList() {
+  const d = DATA.runs[RUN];
+  return PROV === "All" ? (d.provinces || []) : [PROV];
+}
+function sumGroups(perProv, n) {
+  const out = {};
+  ORDER.forEach((g) => { out[g] = new Array(n).fill(0); });
+  provList().forEach((p) => {
+    const d = perProv[p];
+    if (!d) return;
+    for (const g in d) {
+      if (!out[g]) out[g] = new Array(n).fill(0);
+      d[g].forEach((v, i) => { out[g][i] += v; });
+    }
+  });
+  return out;
+}
+function sumSeries(perProv, n) {
+  const out = new Array(n).fill(0);
+  provList().forEach((p) => {
+    const v = perProv[p];
+    if (v) v.forEach((x, i) => { out[i] += x; });
+  });
+  return out;
+}
+function buildView() {
+  const d = DATA.runs[RUN], n = d.years.length;
+  const cost = {};
+  COSTS.forEach((k) => { cost[k] = sumSeries(d.cost[k] || {}, n); });
+  const trans = {};
+  FORMS.forEach((k) => { trans[k] = sumSeries(d.trans[k] || {}, n); });
+  /* dispatch: the selected provinces added up slice by slice */
+  const profiles = {};
+  provList().forEach((p) => {
+    const block = d.profiles[p];
+    if (!block) return;
+    for (const yd in block) {
+      const into = profiles[yd] || (profiles[yd] = {});
+      for (const g in block[yd]) {
+        if (!into[g]) into[g] = new Array(24).fill(0);
+        block[yd][g].forEach((v, h) => { into[g][h] += v; });
+      }
+    }
+  });
+  /* the load the stack is dispatched against, added up the same way */
+  const demandProfile = {};
+  provList().forEach((p) => {
+    const block = (d.demandProfile || {})[p];
+    if (!block) return;
+    for (const yd in block) {
+      if (!demandProfile[yd]) demandProfile[yd] = new Array(24).fill(0);
+      block[yd].forEach((v, h) => { demandProfile[yd][h] += v; });
+    }
+  });
+  VIEW = {
+    years: d.years,
+    prod_all: sumGroups(d.prod, n), cap_all: sumGroups(d.cap, n),
+    cost: cost, trans: trans, emission: sumSeries(d.emission, n),
+    profiles: profiles, demandProfile: demandProfile,
+    flows: (PROV === "All" ? null : (d.flows || {})[PROV] || {}),
+    /* the map always shows every province, whatever the filter */
+    provProd: d.prod, provDemand: d.demand, nuclear: d.nuclear, links: d.links,
+  };
+  return VIEW;
+}
 
 function ticks(max, n) {
   n = n || 4;
+  /* a series that is all zeros gave a step of zero and the loop below never
+     ended, which froze the whole redraw */
+  if (!isFinite(max) || max <= 0) return [0];
   const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw) || mag * 10;
+  if (!isFinite(step) || step <= 0) return [0, max];
   const out = []; for (let v = 0; v <= max * 1.0001; v += step) out.push(v);
   return out;
 }
@@ -341,13 +551,14 @@ function stackedBars(mount, tip, years, series, keys, paint, unit, mul, dp, labe
       const v = series[k] ? series[k][i] : 0;
       if (v <= 0) return;
       const yTop = sy(acc + v), yBot = sy(acc);
-      const h = Math.max(0, yBot - yTop - 2);
+      const h = Math.max(0, yBot - yTop - 0.75);
       if (h > 0.5) {
         const isTop = acc + v >= totals[i] - 1e-6;
         const seg = el("path", { fill: paint(k), d: roundedTop(cx - bw / 2, yTop, bw, h, isTop ? 4 : 0) });
         seg.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
-          (label ? label(k) : k) + " \u00b7 " + yr,
-          [[unit, fmt(v * mul, dp || 0), keyOf(k)], ["Share", fmt((v / totals[i]) * 100, 1) + "%"]]));
+          nm(label ? label(k) : k) + " \u00b7 " + yr,
+          [[unit, fmt(v * mul, dp || 0), swatchOf(k)],
+           [nm("share"), fmt((v / totals[i]) * 100, 1) + "%"]]));
         g.svg.appendChild(seg);
         if (h > 16) {
           const t = el("text", { class: "vlab", x: cx, y: (yTop + yBot) / 2 + 3.5,
@@ -395,7 +606,7 @@ function lineChart(mount, tip, years, series, keys, styleOf, unit, mul, dp) {
       const c = el("circle", { cx: p[0], cy: p[1], r: 4, fill: st.color,
         stroke: "var(--surface)", "stroke-width": 2 });
       c.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
-        k + " \u00b7 " + years[i], [[unit, fmt(vals[i], dp || 0), st.color]]));
+        nm(k) + " \u00b7 " + years[i], [[unit, fmt(vals[i], dp || 0), st.color]]));
       g.svg.appendChild(c);
     });
     ends.push({ k, y: pts[pts.length - 1][1], x: pts[pts.length - 1][0], color: st.color });
@@ -405,14 +616,14 @@ function lineChart(mount, tip, years, series, keys, styleOf, unit, mul, dp) {
   ends.forEach((e2) => {
     const y = Math.max(e2.y, prev + 12); prev = y;
     const t = el("text", { class: "endlab", x: e2.x + 8, y: y + 3.5, fill: e2.color });
-    t.textContent = e2.k; g.svg.appendChild(t);
+    t.textContent = nm(e2.k); g.svg.appendChild(t);
   });
   mount.appendChild(g.svg);
   wireTip(mount.parentElement, tip);
 }
 
 /* ---- dispatch: four seasons as small multiples on a shared scale ---- */
-function dispatchGrid(mount, tip, prof, year) {
+function dispatchGrid(mount, tip, prof, year, demand) {
   mount.innerHTML = "";
   const W = 950, cellW = 455, cellH = 190, gapX = 40, gapY = 40;
   const H = cellH * 2 + gapY + 30;
@@ -421,46 +632,76 @@ function dispatchGrid(mount, tip, prof, year) {
   /* a slice holds MWyr; dividing by the share of the year it stands for
      turns it into average power */
   const gw = (v, s) => v / SLICE[s - 1] / 1000;
-  let max = 0;
+  /* storage charging is carried negative, so the scale has to reach below
+     zero as well as above it */
+  let max = 0, min = 0;
   for (let s = 1; s <= 4; s++) {
     const p = prof[year + "-" + s] || {};
     for (let h = 0; h < hours; h++) {
-      const t = ORDER.reduce((a, k) => a + (p[k] ? p[k][h] : 0), 0);
-      if (gw(t, s) > max) max = gw(t, s);
+      let up = 0, down = 0;
+      ORDER.forEach((k) => {
+        const v = p[k] ? p[k][h] : 0;
+        if (v >= 0) up += v; else down += v;
+      });
+      if (gw(up, s) > max) max = gw(up, s);
+      if (gw(down, s) < min) min = gw(down, s);
     }
+    const dm = (demand || {})[year + "-" + s];
+    if (dm) for (let h = 0; h < hours; h++) if (gw(dm[h], s) > max) max = gw(dm[h], s);
   }
   max = (max || 1) * 1.12;
-  const SEASON = ["Winter \u00b7 season 1", "Spring \u00b7 season 2",
-                  "Summer \u00b7 season 3", "Autumn \u00b7 season 4"];
+  min = min * 1.12;
+  /* season 1 starts on 25 March, so the first representative day is a spring
+     one and the year runs spring, summer, autumn, winter */
+  const SEASON = ["Spring", "Summer", "Autumn", "Winter"].map((w, i) =>
+    nm(w) + " \u00b7 " + (LANG === "zh" ? nm("season") + (i + 1) : "season " + (i + 1)));
   for (let s = 1; s <= 4; s++) {
     const ox = ((s - 1) % 2) * (cellW + gapX);
     const oy = Math.floor((s - 1) / 2) * (cellH + gapY) + 22;
     const pad = { l: 52, r: 10, t: 8, b: 22 };
     const x0 = ox + pad.l, x1 = ox + cellW - pad.r, y0 = oy + pad.t, y1 = oy + cellH - pad.b;
     const sx = (h) => x0 + (h / (hours - 1)) * (x1 - x0);
-    const sy = (v) => y1 - (v / max) * (y1 - y0);
+    const sy = (v) => y1 - ((v - min) / (max - min)) * (y1 - y0);
     const ttl = el("text", { class: "panelttl", x: x0, y: oy - 6 });
     ttl.textContent = SEASON[s - 1]; svg.appendChild(ttl);
-    for (const t of ticks(max)) {
+    /* ticks either side of zero, on the same step */
+    const step = ticks(max)[1] || max;
+    const marks = [];
+    for (let v = 0; v <= max; v += step) marks.push(v);
+    for (let v = -step; v >= min; v -= step) marks.push(v);
+    for (const t of marks) {
       svg.appendChild(el("line", { class: t === 0 ? "axis" : "gridline", x1: x0, x2: x1, y1: sy(t), y2: sy(t) }));
       const lab = el("text", { class: "tick", x: x0 - 7, y: sy(t) + 3.5, "text-anchor": "end" });
-      lab.textContent = t === 0 ? "0" : fmt(t, 0); svg.appendChild(lab);
+      lab.textContent = fmt(t, 0); svg.appendChild(lab);
     }
     const p = prof[year + "-" + s] || {};
     const totals = [];
     for (let h = 0; h < hours; h++) totals.push(ORDER.reduce((a, k) => a + (p[k] ? p[k][h] : 0), 0));
-    const below = new Array(hours).fill(0);
+    /* two running bases: what is generated stacks up from zero, what is
+       drawn out of the grid to charge a store stacks down from it */
+    const up = new Array(hours).fill(0), down = new Array(hours).fill(0);
     ORDER.forEach((k) => {
       const vals = p[k] || new Array(hours).fill(0);
-      if (!vals.some((v) => v > 0)) return;
-      const top = vals.map((v, h) => below[h] + v);
-      let d = "M" + sx(0) + "," + sy(gw(below[0], s));
+      if (!vals.some((v) => v !== 0)) return;
+      const base = [], top = [];
+      for (let h = 0; h < hours; h++) {
+        if (vals[h] >= 0) { base[h] = up[h]; top[h] = up[h] + vals[h]; up[h] = top[h]; }
+        else { base[h] = down[h]; top[h] = down[h] + vals[h]; down[h] = top[h]; }
+      }
+      let d = "M" + sx(0) + "," + sy(gw(base[0], s));
       for (let h = 0; h < hours; h++) d += "L" + sx(h) + "," + sy(gw(top[h], s));
-      for (let h = hours - 1; h >= 0; h--) d += "L" + sx(h) + "," + sy(gw(below[h], s));
+      for (let h = hours - 1; h >= 0; h--) d += "L" + sx(h) + "," + sy(gw(base[h], s));
       svg.appendChild(el("path", { d: d + "Z", fill: fillOf(k),
-        stroke: "var(--surface)", "stroke-width": 2, "stroke-linejoin": "round" }));
-      for (let h = 0; h < hours; h++) below[h] = top[h];
+        stroke: "var(--surface)", "stroke-width": 0.75, "stroke-linejoin": "round" }));
     });
+    /* demand: an input, not a result, and what the stack has to cover */
+    const dem = (demand || {})[year + "-" + s];
+    if (dem) {
+      let dd = "";
+      for (let h = 0; h < hours; h++) dd += (h ? "L" : "M") + sx(h) + "," + sy(gw(dem[h], s));
+      svg.appendChild(el("path", { d: dd, fill: "none", stroke: "var(--ink)",
+        "stroke-width": 1.6, "stroke-linejoin": "round", "stroke-dasharray": "4 2.5" }));
+    }
     for (let h = 0; h < hours; h += 6) {
       const lab = el("text", { class: "tick", x: sx(h), y: y1 + 15, "text-anchor": "middle" });
       lab.textContent = String(h + 1).padStart(2, "0") + ":00"; svg.appendChild(lab);
@@ -474,9 +715,10 @@ function dispatchGrid(mount, tip, prof, year) {
       let h = Math.round(((rel - x0) / (x1 - x0)) * (hours - 1));
       h = Math.max(0, Math.min(hours - 1, h));
       cross.setAttribute("x1", sx(h)); cross.setAttribute("x2", sx(h)); cross.setAttribute("opacity", .55);
-      const rows = ORDER.filter((k) => p[k] && p[k][h] > 0.001)
-        .map((k) => [k, fmt(gw(p[k][h], s), 1) + " GW", keyOf(k)]).reverse();
-      rows.push(["Total", fmt(gw(totals[h], s), 1) + " GW"]);
+      const rows = ORDER.filter((k) => p[k] && Math.abs(p[k][h]) > 0.001)
+        .map((k) => [nm(k), fmt(gw(p[k][h], s), 1) + " GW", swatchOf(k)]).reverse();
+      rows.push([nm("total"), fmt(gw(totals[h], s), 1) + " GW"]);
+      if (dem) rows.push([nm("demand"), fmt(gw(dem[h], s), 1) + " GW"]);
       showTip(tip, mount.parentElement, e,
         SEASON[s - 1].split(" \u00b7 ")[0] + " " + String(h + 1).padStart(2, "0") + ":00", rows);
     });
@@ -488,10 +730,105 @@ function dispatchGrid(mount, tip, prof, year) {
   wireTip(mount.parentElement, tip);
 }
 
+/* ---- cross-province flows, one panel per season ----
+   a line A_B sends from A, so it is negative for A and positive for B. the
+   partner colours are the categorical hues used as plain slots: no fuel is on
+   this chart, so nothing collides                                          */
+const PARTNER_HUES = ["Hydro", "Gas", "Wind", "Solar", "Storage", "Biomass",
+                      "Nuclear", "Coal"];
+function flowGrid(mount, tip, flows, year) {
+  mount.innerHTML = "";
+  if (!flows) { mount.innerHTML = '<p class="mapnote">' + nm("pickProvince") + "</p>"; return []; }
+  const partners = [];
+  for (let s = 1; s <= 4; s++) {
+    const b = flows[year + "-" + s] || {};
+    for (const k in b) if (partners.indexOf(k) < 0) partners.push(k);
+  }
+  partners.sort();
+  if (!partners.length) {
+    mount.innerHTML = '<p class="mapnote">' + nm("noFlows") + "</p>"; return [];
+  }
+  const colour = (k) => css(PARTNER_HUES[partners.indexOf(k) % PARTNER_HUES.length]);
+
+  const W = 950, cellW = 455, cellH = 170, gapX = 40, gapY = 38, hours = 24;
+  const H = cellH * 2 + gapY + 30;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  const gw = (v, s) => v / SLICE[s - 1] / 1000;
+  let max = 0, min = 0;
+  for (let s = 1; s <= 4; s++) {
+    const b = flows[year + "-" + s] || {};
+    for (const k in b) for (let h = 0; h < hours; h++) {
+      const v = gw(b[k][h], s);
+      if (v > max) max = v;
+      if (v < min) min = v;
+    }
+  }
+  if (max === 0 && min === 0) max = 1;
+  max *= 1.12; min *= 1.12;
+
+  const SEASON = ["Spring", "Summer", "Autumn", "Winter"];
+  for (let s = 1; s <= 4; s++) {
+    const ox = ((s - 1) % 2) * (cellW + gapX);
+    const oy = Math.floor((s - 1) / 2) * (cellH + gapY) + 22;
+    const pad = { l: 52, r: 10, t: 8, b: 22 };
+    const x0 = ox + pad.l, x1 = ox + cellW - pad.r, y0 = oy + pad.t, y1 = oy + cellH - pad.b;
+    const sx = (h) => x0 + (h / (hours - 1)) * (x1 - x0);
+    const sy = (v) => y1 - ((v - min) / ((max - min) || 1)) * (y1 - y0);
+    const ttl = el("text", { class: "panelttl", x: x0, y: oy - 6 });
+    ttl.textContent = nm(SEASON[s - 1]) + " · " +
+      (LANG === "zh" ? nm("season") + s : "season " + s);
+    svg.appendChild(ttl);
+    const stepv = ticks(Math.max(max, -min))[1] || Math.max(max, -min) || 1;
+    for (let v = 0; v <= max; v += stepv) marksAt(v);
+    for (let v = -stepv; v >= min; v -= stepv) marksAt(v);
+    function marksAt(v) {
+      svg.appendChild(el("line", { class: v === 0 ? "axis" : "gridline",
+        x1: x0, x2: x1, y1: sy(v), y2: sy(v) }));
+      const lab = el("text", { class: "tick", x: x0 - 7, y: sy(v) + 3.5, "text-anchor": "end" });
+      lab.textContent = fmt(v, 1); svg.appendChild(lab);
+    }
+    const b = flows[year + "-" + s] || {};
+    partners.forEach((k) => {
+      const vals = b[k];
+      if (!vals) return;
+      let d = "";
+      for (let h = 0; h < hours; h++) d += (h ? "L" : "M") + sx(h) + "," + sy(gw(vals[h], s));
+      svg.appendChild(el("path", { d: d, fill: "none", stroke: colour(k),
+        "stroke-width": 1.8, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    });
+    for (let h = 0; h < hours; h += 6) {
+      const lab = el("text", { class: "tick", x: sx(h), y: y1 + 15, "text-anchor": "middle" });
+      lab.textContent = String(h + 1).padStart(2, "0") + ":00"; svg.appendChild(lab);
+    }
+    const cross = el("line", { class: "axis", y1: y0, y2: y1, opacity: 0, "stroke-width": 1.5 });
+    svg.appendChild(cross);
+    const hit = el("rect", { x: x0, y: y0, width: x1 - x0, height: y1 - y0, fill: "transparent" });
+    hit.addEventListener("mousemove", (e) => {
+      const bb = svg.getBoundingClientRect();
+      let h = Math.round(((((e.clientX - bb.left) / bb.width) * W) - x0) / (x1 - x0) * (hours - 1));
+      h = Math.max(0, Math.min(hours - 1, h));
+      cross.setAttribute("x1", sx(h)); cross.setAttribute("x2", sx(h)); cross.setAttribute("opacity", .55);
+      const rows = partners.filter((k) => b[k] && Math.abs(b[k][h]) > 0.001)
+        .map((k) => [nm(k) + " · " + nm(b[k][h] >= 0 ? "importing" : "exporting"),
+                     fmt(gw(b[k][h], s), 2) + " GW", colour(k)]);
+      showTip(tip, mount.parentElement, e,
+        nm(SEASON[s - 1]) + " " + String(h + 1).padStart(2, "0") + ":00",
+        rows.length ? rows : [[nm("none"), ""]]);
+    });
+    hit.addEventListener("mouseleave", () => cross.setAttribute("opacity", 0));
+    svg.appendChild(hit);
+  }
+  const cap = el("text", { class: "tick", x: 2, y: 10 });
+  cap.textContent = "GW"; svg.appendChild(cap);
+  mount.appendChild(svg);
+  wireTip(mount.parentElement, tip);
+  return partners;
+}
+
 /* ---- emissions: the selected scenario only ---- */
 function emissions(mount, tip) {
   mount.innerHTML = "";
-  const d = DATA.runs[RUN];
+  const d = VIEW;
   const W = 470, H = 262, pad = { l: 54, r: 30, t: 24, b: 26 };
   const g = frame(W, H, pad);
   const max = Math.max.apply(null, d.emission) * 1.18;
@@ -525,7 +862,7 @@ function emissions(mount, tip) {
 /* ---- nuclear map: a schematic tile grid, not real boundaries ---- */
 function tileMap(mount, tip, year, yi) {
   mount.innerHTML = "";
-  const d = DATA.runs[RUN];
+  const d = VIEW;
   const cols = 8, rows = 8, cell = 54, gap = 5;
   const W = cols * cell + (cols - 1) * gap, H = rows * cell + (rows - 1) * gap;
   const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
@@ -580,7 +917,8 @@ function tileMap(mount, tip, year, yi) {
     const t = el("text", { x: ox + cell / 2, y: oy + cell / 2 - 1, "text-anchor": "middle",
       fill: side > 26 ? ink : "var(--muted)", "font-size": 8,
       "font-weight": band === null ? 400 : 600 });
-    t.textContent = (name.length > 6 ? name.slice(0, 5) + "\u2026" : name) +
+    const shown = nm(name);
+    t.textContent = (shown.length > 6 ? shown.slice(0, 5) + "\u2026" : shown) +
       (starred.has(name) ? "*" : "");
     g2.appendChild(t);
     if (v > 0 && side > 30) {
@@ -599,10 +937,12 @@ function tileMap(mount, tip, year, yi) {
       if (MAPSIZE !== "Total" && MAPSIZE !== "Demand")
         rows2.push([MAPSIZE, fmt(sizeOf(name) * TWH, 1) + " TWh"]);
       (linksOf[name] || []).slice(0, 5).forEach((k) =>
-        rows2.push([(k[2] === "out" ? "\u2192 " : "\u2190 ") + k[0], fmt(k[1] / 1000, 1) + " GW"]));
+        rows2.push([(k[2] === "out" ? "\u2192 " : "\u2190 ") + nm(k[0]),
+                    fmt(k[1] / 1000, 1) + " GW"]));
       if ((linksOf[name] || []).length > 5)
         rows2.push(["\u2026", (linksOf[name].length - 5) + " more links"]);
-      showTip(tip, mount.parentElement, e, isDummy ? "Dummy \u2014 storage region" : name, rows2);
+      showTip(tip, mount.parentElement, e,
+        isDummy ? nm("Dummy") : nm(name), rows2);
     });
     svg.appendChild(g2);
   });
@@ -634,17 +974,19 @@ function tileMap(mount, tip, year, yi) {
 
 /* ---- chrome ---- */
 function tiles() {
-  const d = DATA.runs[RUN], last = d.years.length - 1;
+  const d = VIEW, last = d.years.length - 1;
   const gen = ORDER.reduce((s, k) => s + d.prod_all[k][last], 0);
   const cap = ORDER.reduce((s, k) => s + d.cap_all[k][last], 0);
   const ren = RENEW.reduce((s, k) => s + d.prod_all[k][last], 0);
   const e0 = d.emission[0], e1 = d.emission[last];
   const pc = ((e1 - e0) / e0) * 100;
   const cells = [
-    ["Generation " + d.years[last], fmt(gen * TWH, 0), "TWh", d.years[0] + " \u2192 " + d.years[last]],
-    ["Capacity " + d.years[last], fmt(cap / 1000, 0), "GW", "installed, all sources"],
-    ["Renewable share", fmt((ren / gen) * 100, 1), "%", "wind, hydro and solar"],
-    ["CO2 " + d.years[last], fmt(e1, 0), "Mt", (pc >= 0 ? "+" : "") + fmt(pc, 1) + "% vs " + d.years[0]]
+    [nm("generation") + " " + d.years[last], fmt(gen * TWH, 0), "TWh",
+      d.years[0] + " \u2192 " + d.years[last]],
+    [nm("capacity") + " " + d.years[last], fmt(cap / 1000, 0), "GW", nm("installedAll")],
+    [nm("renewableShare"), fmt((ren / gen) * 100, 1), "%", nm("windHydroSolar")],
+    [nm("co2") + " " + d.years[last], fmt(e1, 0), "Mt",
+      (pc >= 0 ? "+" : "") + fmt(pc, 1) + "% vs " + d.years[0]]
   ];
   $("#tiles").innerHTML = cells.map((c) =>
     '<div class="tile"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
@@ -653,21 +995,21 @@ function tiles() {
 function legendInto(id, keys, paint, label) {
   $(id).innerHTML = keys.map((k) =>
     '<span class="it"><span class="sw" style="background:' + paint(k) + '"></span>' +
-    (label ? label(k) : k) + "</span>").join("");
+    nm(label ? label(k) : k) + "</span>").join("");
 }
 function legendLines(id, keys, styleOf) {
   $(id).innerHTML = keys.map((k) => {
     const s = styleOf(k);
     return '<span class="it"><span style="width:16px;height:0;flex:none;border-top:2px ' +
-      (s.dash ? "dotted" : "solid") + " " + s.color + '"></span>' + k + "</span>";
+      (s.dash ? "dotted" : "solid") + " " + s.color + '"></span>' + nm(k) + "</span>";
   }).join("");
 }
 function mapLegend() {
-  const d = DATA.runs[RUN];
+  const d = VIEW;
   let max = 0;
   Object.keys(d.nuclear).forEach((p) => d.nuclear[p].forEach((v) => { if (v > max) max = v; }));
   const b = [0, max / 3, (2 * max) / 3];
-  const items = [["no nuclear", css("n0")],
+  const items = [[nm("noNuclear"), css("n0")],
     ["< " + fmt(b[1] / 1000, 1) + " GW", css("n1")],
     [fmt(b[1] / 1000, 1) + "\u2013" + fmt(b[2] / 1000, 1) + " GW", css("n2")],
     ["> " + fmt(b[2] / 1000, 1) + " GW", css("n3")]];
@@ -675,31 +1017,31 @@ function mapLegend() {
     '<span class="it"><span class="sw" style="background:' + i[1] + '"></span>' + i[0] + "</span>").join("");
 }
 function table() {
-  const d = DATA.runs[RUN];
-  let head = "<tr><th>Source</th>";
+  const d = VIEW;
+  let head = "<tr><th>" + nm("source") + "</th>";
   d.years.forEach((y) => { head += "<th>" + y + " TWh</th>"; });
   d.years.forEach((y) => { head += "<th>" + y + " GW</th>"; });
   head += "</tr>";
   const body = ORDER.map((k) =>
-    '<tr><td><span class="sw" style="background:' + fillOf(k) +
-    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + k + "</td>" +
+    '<tr><td><span class="sw" style="background:' + swatchOf(k) +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + nm(k) + "</td>" +
     d.prod_all[k].map((v) => "<td>" + fmt(v * TWH, 1) + "</td>").join("") +
     d.cap_all[k].map((v) => "<td>" + fmt(v / 1000, 1) + "</td>").join("") + "</tr>").join("");
-  let head2 = "<tr><th>Cost</th>";
+  let head2 = "<tr><th>" + nm("cost") + "</th>";
   d.years.forEach((y) => { head2 += "<th>" + y + " bn US$</th>"; });
   head2 += "</tr>";
   const body2 = COSTS.map((k) =>
     '<tr><td><span class="sw" style="background:' + css(COSTVAR[k]) +
-    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + k + "</td>" +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' + nm(k) + "</td>" +
     d.cost[k].map((v) => "<td>" + fmt(v / 1e9, 2) + "</td>").join("") + "</tr>").join("");
   const body3 = FORMS.map((k) =>
     '<tr><td><span class="sw" style="background:' + css(FORMVAR[k]) +
-    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>Transmission ' +
-    FORMNAME[k] + "</td>" +
+    ';display:inline-block;margin-right:7px;vertical-align:-1px"></span>' +
+    nm("transmission") + " " + nm(FORMNAME[k]) + "</td>" +
     d.trans[k].map((v) => "<td>" + fmt(v / 1000, 1) + "</td>").join("") + "</tr>").join("");
   $("#tbl").innerHTML = "<table>" + head + body + "</table>" +
     '<div style="height:14px"></div><table>' + head2 + body2 + "</table>" +
-    '<div style="height:14px"></div><table><tr><th>Transmission</th>' +
+    '<div style="height:14px"></div><table><tr><th>' + nm("transmission") + "</th>" +
     d.years.map((y) => "<th>" + y + " GW</th>").join("") + "</tr>" + body3 + "</table>";
   $("#tbl-sub").textContent = RUN + ", generation, capacity, cost and transmission by year.";
 }
@@ -710,44 +1052,61 @@ const RSTYLE = (k) => RENEW.indexOf(k) >= 0
 let RKEYS = [];
 
 function drawDispatch() {
-  const d = DATA.runs[RUN], y = d.years[DISI];
+  const d = VIEW, y = d.years[DISI];
   $("#dis-yr").textContent = y;
-  $("#dis-sub").textContent = RUN + ", one representative day per season, shared scale.";
-  dispatchGrid($("#dis"), $("#tip-dis"), d.profiles, y);
+  $("#dis-sub").textContent = (PROV === "All" ? nm("allProvinces") : nm(PROV)) +
+    " \u00b7 " + nm("disSub") + " · " + nm("demandNote");
+  dispatchGrid($("#dis"), $("#tip-dis"), d.profiles, y, d.demandProfile);
+
+  $("#flow-sub").textContent = (PROV === "All" ? nm("allProvinces") : nm(PROV)) +
+    " · " + y + " · " + nm("flowSub");
+  const partners = flowGrid($("#flow"), $("#tip-flow"), d.flows, y);
+  $("#legend9").innerHTML = partners.map((k, i) =>
+    '<span class="it"><span style="width:16px;height:0;flex:none;border-top:2px solid ' +
+    css(PARTNER_HUES[i % PARTNER_HUES.length]) + '"></span>' + nm(k) + "</span>").join("");
 }
 function drawMap() {
-  const d = DATA.runs[RUN], y = d.years[MAPI];
+  const d = VIEW, y = d.years[MAPI];
   $("#map-yr").textContent = y;
   const total = Object.keys(d.nuclear).reduce((s, p) => s + d.nuclear[p][MAPI], 0);
-  const sized = MAPSIZE === "Total" ? "total generation"
-    : MAPSIZE === "Demand" ? "delivered electricity" : MAPSIZE + " generation";
-  $("#map-sub").textContent = RUN + " \u00b7 " + fmt(total / 1000, 1) + " GW nuclear in " + y +
-    " \u00b7 squares sized by " + sized +
-    ". Schematic grid, one square per province \u2014 not a geographic map.";
+  const sized = MAPSIZE === "Total" ? nm("totalGeneration")
+    : MAPSIZE === "Demand" ? nm("demandDelivered") : nm(MAPSIZE);
+  $("#map-sub").textContent = RUN + " \u00b7 " + fmt(total / 1000, 1) + " GW " +
+    nm("Nuclear") + " " + y + " \u00b7 " + nm("sizedBy") + " " + sized +
+    " \u00b7 " + nm("schematic");
   tileMap($("#map"), $("#tip-map"), y, MAPI);
   mapLegend();
 }
+/* each chart is drawn on its own: before this, anything that threw part way
+   through left the charts after it showing the previous province */
+function step(what, fn) {
+  try { fn(); } catch (err) { console.error(what, err); }
+}
 function draw() {
-  const d = DATA.runs[RUN];
+  const d = buildView();
   tiles();
-  legendInto("#legend", ORDER, fillOf);
-  legendInto("#legend2", ORDER, fillOf);
+  legendInto("#legend", ORDER, swatchOf);
+  legendInto("#legend2", ORDER, swatchOf);
   legendInto("#legend3", COSTS, (k) => css(COSTVAR[k]));
-  legendInto("#legend4", ORDER, fillOf);
+  legendInto("#legend4", ORDER, swatchOf);
+  $("#legend4").insertAdjacentHTML("beforeend",
+    '<span class="it"><span style="width:16px;height:0;flex:none;border-top:1.6px dashed ' +
+    css("ink") + '"></span>' + nm("demand") + "</span>");
   legendInto("#legend8", FORMS, (k) => css(FORMVAR[k]), (k) => FORMNAME[k]);
   legendLines("#legend6", RKEYS, RSTYLE);
   legendLines("#legend7", RKEYS, (k) => ({ color: keyOf(k), dash: null }));
-  $("#gen-sub").textContent = RUN + ", labels are TWh a year.";
-  $("#cap-sub").textContent = RUN + ", labels are GW installed.";
-  $("#rgen-sub").textContent = "Renewables solid, storage output dotted. TWh a year.";
-  $("#rcap-sub").textContent = "Renewables and storage, GW installed.";
-  $("#pen-sub").textContent = "Share of total generation, per cent.";
-  $("#trans-sub").textContent = RUN + ", GW of inter-province transmission capacity.";
-  $("#cost-sub").textContent = RUN + ", labels are billion US$ a year.";
-  $("#emi-sub").textContent = RUN + " only, million tonnes a year.";
+  const who = RUN + " \u00b7 " + (PROV === "All" ? nm("allProvinces") : nm(PROV));
+  $("#gen-sub").textContent = who + " \u00b7 " + nm("labelsTwh");
+  $("#cap-sub").textContent = who + " \u00b7 " + nm("labelsGw");
+  $("#rgen-sub").textContent = nm("renSolidStoDotted");
+  $("#rcap-sub").textContent = nm("renCapSub");
+  $("#pen-sub").textContent = nm("shareOfGen");
+  $("#trans-sub").textContent = who + " \u00b7 " + nm("transSub");
+  $("#cost-sub").textContent = who + " \u00b7 " + nm("labelsBn");
+  $("#emi-sub").textContent = who + " \u00b7 " + nm("emiSub");
 
-  stackedBars($("#gen"), $("#tip-gen"), d.years, d.prod_all, ORDER, fillOf, "TWh", TWH, 0);
-  stackedBars($("#cap"), $("#tip-cap"), d.years, d.cap_all, ORDER, fillOf, "GW", 1 / 1000, 0);
+  step("generation", () => stackedBars($("#gen"), $("#tip-gen"), d.years, d.prod_all, ORDER, fillOf, "TWh", TWH, 0));
+  step("capacity", () => stackedBars($("#cap"), $("#tip-cap"), d.years, d.cap_all, ORDER, fillOf, "GW", 1 / 1000, 0));
   lineChart($("#rgen"), $("#tip-rgen"), d.years, d.prod_all, RKEYS, RSTYLE, "TWh", TWH, 0);
   lineChart($("#rcap"), $("#tip-rcap"), d.years, d.cap_all, RKEYS,
     (k) => ({ color: keyOf(k), dash: null }), "GW", 1 / 1000, 0);
@@ -764,12 +1123,20 @@ function draw() {
     (k) => css(FORMVAR[k]), "GW", 1 / 1000, 0, (k) => FORMNAME[k]);
   stackedBars($("#cost"), $("#tip-cost"), d.years, d.cost, COSTS,
     (k) => css(COSTVAR[k]), "bn US$", 1e-9, 2);
-  emissions($("#emi"), $("#tip-emi"));
-  drawDispatch(); drawMap(); table();
+  step("emissions", () => emissions($("#emi"), $("#tip-emi")));
+  step("dispatch", drawDispatch);
+  step("map", drawMap);
+  step("table", table);
 }
 function fillSelects() {
   $("#run").innerHTML = Object.keys(DATA.runs).map((r) =>
     "<option" + (r === RUN ? " selected" : "") + ">" + r + "</option>").join("");
+  const provs = DATA.runs[RUN].provinces || [];
+  if (PROV !== "All" && provs.indexOf(PROV) < 0) PROV = "All";
+  $("#prov").innerHTML = ['<option value="All"' + (PROV === "All" ? " selected" : "") +
+    ">" + nm("allProvinces") + "</option>"].concat(provs.map((p) =>
+    '<option value="' + p + '"' + (PROV === p ? " selected" : "") + ">" + nm(p) +
+    "</option>")).join("");
   const ys = DATA.runs[RUN].years, last = ys.length - 1;
   DISI = Math.min(DISI, last); MAPI = Math.min(MAPI, last);
   ["dis", "map"].forEach((p) => {
@@ -779,10 +1146,10 @@ function fillSelects() {
     $("#" + p + "-hi").textContent = ys[last];
   });
   $("#mapsize").innerHTML = ['<option value="Total"' + (MAPSIZE === "Total" ? " selected" : "") +
-    ">Total generation</option>",
+    ">" + nm("totalGeneration") + "</option>",
     '<option value="Demand"' + (MAPSIZE === "Demand" ? " selected" : "") +
-    ">Demand (delivered)</option>"].concat(ORDER.map((k) =>
-    '<option value="' + k + '"' + (MAPSIZE === k ? " selected" : "") + ">" + k + "</option>")).join("");
+    ">" + nm("demandDelivered") + "</option>"].concat(ORDER.map((k) =>
+    '<option value="' + k + '"' + (MAPSIZE === k ? " selected" : "") + ">" + nm(k) + "</option>")).join("");
 }
 
 $("#run").addEventListener("change", (e) => {
@@ -794,6 +1161,17 @@ $("#run").addEventListener("change", (e) => {
 $("#dis-year").addEventListener("input", (e) => { DISI = +e.target.value; drawDispatch(); });
 $("#map-year").addEventListener("input", (e) => { MAPI = +e.target.value; drawMap(); });
 $("#mapsize").addEventListener("change", (e) => { MAPSIZE = e.target.value; drawMap(); });
+$("#prov").addEventListener("change", (e) => { PROV = e.target.value; draw(); });
+$("#lang").addEventListener("click", () => {
+  LANG = LANG === "en" ? "zh" : "en";
+  $("#lang").textContent = LANG === "en" ? "\u4e2d\u6587" : "English";
+  document.documentElement.lang = LANG === "zh" ? "zh" : "en";
+  /* static labels carry their key, everything else is drawn again */
+  document.querySelectorAll("[data-i18n]").forEach((el2) => {
+    el2.textContent = nm(el2.dataset.i18n);
+  });
+  fillSelects(); draw();
+});
 $("#showlinks").addEventListener("click", (e) => {
   SHOWLINKS = !SHOWLINKS;
   e.currentTarget.setAttribute("aria-pressed", String(SHOWLINKS));

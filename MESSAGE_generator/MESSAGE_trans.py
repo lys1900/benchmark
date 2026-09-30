@@ -1019,6 +1019,14 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
                     systems_trans_s += f"    minp	{td['minp']} 1.\n"
                 if not pd.isna(td['moutp']):
                     systems_trans_s += f"    moutp	{td['moutp']} c {numstr(td['efficiency'])}\n"
+                    #these carry a matrix name like any other technology, and
+                    #the Distribution one is what a province is actually
+                    #delivered, so the results script can read its profile
+                    tech_codes[td_name] = (
+                        add_storage.matrix_code(
+                            td['moutp'], None if pd.isna(td['minp']) else td['minp'],
+                            td['activity'])
+                        + ascii_all[regid_counter - 1])
                 systems_trans_s += f"    inv	c {float(td['inv'])}\n"
                 systems_trans_s += f"    fom	c {float(td['fom'])}\n"
                 systems_trans_s += f"    vom	c {float(td['vom'])}\n"
@@ -1044,12 +1052,14 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
                                 f"{ldr_loadcurve_season_s['heat']}"
                                 )
             relationsp_s = ""
-            ldb_relationsp_s = ldb_relations1_ramp_s
             relations1_s = relations1_ramp_s
-            ldb_relations1_s = ("\n"
-                                "CO2Limit CO2L o\n"
-                                "*"
-                                )
+            #the .ldb declares what this case's .adb declares, which for a
+            #province is the ramp relations. these used to be assigned to a
+            #relationsp variable nothing read, so they never reached the file.
+            #CO2Limit is deliberately not here: it belongs to the main case,
+            #and naming it made the subregion claim the relation, leaving the
+            #main one with no bound and nothing contributing to it
+            ldb_relations1_s = ldb_relations1_ramp_s
 
         else:  #else if not province, so is main
             case_name = main_name
@@ -1062,6 +1072,10 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
             ldb_systems_pp_s = ''
             counter_line = 0
             for id, line in interconnection_main.iterrows():
+                #the main case has no subregion letter of its own, the regid
+                #file gives it a dot, so that is what finishes its codes
+                tech_codes[line['line_name']] = add_storage.matrix_code(
+                    lvl_elecdist, lvl_elecdist, ascii_all[counter_line]) + '.'
                 tech_s = (f"{line['line_name']} {ascii_all[counter_line]}\n"
                           f"    minp  {lvl_elecdist}-{line['from']}_{main_name} 1.\n"
                           f"    moutp {lvl_elecdist}-{line['to']}_{main_name} c {numstr(ic_param['efficiency'])}\n"
@@ -1081,7 +1095,12 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
 
             relations1_s = (f"\n"
                             f"CO2Limit CO2L o\n"
-                            f"    units	group: activity, type: weight, cost:US$'00/ton, upper:kton, lower:kton\n"
+                            #declared in MWyr like every other relation, not in
+                            #kton. chkunits carries "multipl k 1000.0", so a
+                            #bound given in kton is scaled by a thousand and the
+                            #limit never binds. this is the line the MESSAGE
+                            #interface writes when the same model is saved there
+                            f"    units	group: activity, type: energy, cost:US$'00/kWyr, upper:MWyr, lower:MWyr\n"
                             f"    for_ldr	none\n"
                             f"    upper	ts {' '.join(str(i) for i in emissions['emissions'])} \n"
                             f"    lower	c 0\n"

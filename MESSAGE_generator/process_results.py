@@ -413,6 +413,65 @@ def read_sol_activity(path, codes, year_of):
     return series
 
 
+def write_demand_profile(out_fd, case_fd, years, model_years):
+    """
+    the load each province has to be supplied with, hour by hour.
+
+    this one is an input rather than a result, but it belongs next to the
+    profiles it is plotted against. it is worked out the way the MESSAGE
+    interface shows it: each province's .adb carries the yearly electricity
+    demand and a load curve of fractions adding to one, and the two multiplied
+    give the demand in each time slice. the Distribution technology cannot be
+    used instead, because the matrix does not resolve it by load region
+    """
+    parent = os.path.dirname(os.path.normpath(case_fd))
+    main = os.path.basename(os.path.normpath(case_fd))
+    if not os.path.isdir(parent):
+        print(f"   {parent} not found, no demand profile written")
+        return
+
+    rows, unreadable = [], []
+    for folder in sorted(os.listdir(parent)):
+        if folder == main or not folder.endswith('_' + main):
+            continue
+        adb = f"{parent}/{folder}/data/{folder}.adb"
+        if not os.path.exists(adb):
+            continue
+        province = folder[:-(len(main) + 1)]
+        text = open(adb, encoding='utf-8', errors='replace').read()
+        try:
+            after = text.split('demand:', 1)[1]
+            annual = [float(v) for v in
+                      next(l for l in after.splitlines()
+                           if l.startswith(mt.lvl_elecdemand + ' ')).split()[2:]]
+            curve = text.split('loadcurve:', 1)[1].split('relationsc:', 1)[0]
+            shares = [float(v) for v in
+                      next(l for l in curve.splitlines()
+                           if l.startswith(mt.lvl_elecdemand + ' ')).split()[1:]]
+        except (IndexError, StopIteration, ValueError):
+            unreadable.append(province)
+            continue
+
+        #the load curve runs day by day, so the slices split evenly between the
+        #representative days the model carries
+        steps = max(1, len(shares) // len(mt.season_bounds))
+        for year in years:
+            if year not in model_years or model_years.index(year) >= len(annual):
+                continue
+            total = annual[model_years.index(year)]
+            for n, share in enumerate(shares):
+                rows.append((province, year, n // steps + 1, n % steps + 1,
+                             round(total * share, 4)))
+
+    if unreadable:
+        print(f"   warning: no demand or load curve in {len(unreadable)} province(s), "
+              f"eg {unreadable[:3]}")
+    out = pd.DataFrame(rows, columns=['province', 'year', 'day', 'hour', 'value'])
+    out.to_csv(f"{out_fd}/demand_profile.csv", index=False)
+    print(f"   wrote demand_profile.csv  ({len(out)} rows, "
+          f"{out['province'].nunique() if len(out) else 0} provinces)")
+
+
 def write_profiles(out_fd, case_fd, model_years, efficiency):
     """
     production in every time slice, one row per technology, year and slice.
@@ -521,6 +580,8 @@ def process_run(run, case_fd, input_fd, input_fn):
 
     #the profiles, which the res file does not carry
     write_profiles(out_fd, case_fd, model_years, efficiency)
+    #the load those profiles are dispatched against, from the model's inputs
+    write_demand_profile(out_fd, case_fd, years, model_years)
 
 
 def emission_rows(prod_tech, factors):

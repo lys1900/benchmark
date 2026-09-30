@@ -27,17 +27,19 @@ import process_results as pr
 PORT = 8765
 page_fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results_viz.html')
 
-#coal with capture is checked before plain coal, and the two storages are kept
-#apart because the line charts want them separately
+#a fuel with capture is checked before the plain one, and the two storages are
+#kept apart because the line charts want them separately
 GROUP = [('coal', 'ccs', 'Coal CCS'), ('coal', None, 'Coal'),
-         ('gas', None, 'Gas'), ('nuclear', None, 'Nuclear'),
-         ('biomass', None, 'Biomass'), ('hydro', None, 'Hydro'),
+         ('gas', 'ccs', 'Gas CCS'), ('gas', None, 'Gas'),
+         ('nuclear', None, 'Nuclear'),
+         ('biomass', 'ccs', 'Biomass CCS'), ('biomass', None, 'Biomass'),
+         ('hydro', None, 'Hydro'),
          ('wind', None, 'Wind'), ('solar', None, 'Solar'),
          ('bat', None, 'Battery'), ('turbpum', None, 'Pumped')]
-#the stack order the palette was validated on, with the two textured variants
-#next to the hue they belong to
-ORDER = ['Coal', 'Coal CCS', 'Gas', 'Nuclear', 'Biomass', 'Hydro', 'Wind',
-         'Solar', 'Battery', 'Pumped']
+#the stack order the palette was validated on, with each textured variant next
+#to the hue it belongs to
+ORDER = ['Coal', 'Coal CCS', 'Gas', 'Gas CCS', 'Nuclear', 'Biomass',
+         'Biomass CCS', 'Hydro', 'Wind', 'Solar', 'Battery', 'Pumped']
 RENEW = ['Wind', 'Hydro', 'Solar']
 COST = [('Table_14_investmentcost', 'Investment'), ('Table_15_fixedcost', 'Fixed O&M'),
         ('Table_16_variablecost', 'Variable O&M')]
@@ -106,51 +108,116 @@ def interconnections(input_fd, input_fn):
             for s, row in m.iterrows() for d, v in row.items() if pd.notna(v) and v]
 
 
-def one_run(run, fd, input_fd, input_fn):
-    """everything the page plots for a single run"""
-    years, prod = by_group(fd, 'prod_all')
-    _, cap = by_group(fd, 'cap_all')
-    out = {'years': years, 'prod_all': prod, 'cap_all': cap}
+def province_groups(fd, name, years, short):
+    """
+    one of the _province csv files rolled up to {province: {family: [years]}}.
+    the page sums these itself when every province is selected, so nothing is
+    stored twice
+    """
+    table = pd.read_csv(f"{fd}/{name}.csv", index_col=0)
+    rows = {}
+    for i in table.index:
+        prov, tech, _ = pr.split_name(pr.SECOND_ACTIVITY.sub('', str(i)))
+        if prov not in short:
+            continue
+        fam = rows.setdefault(short[prov], {}).setdefault(group_of(tech), [0.0] * len(years))
+        values = table.loc[i]
+        for j in range(len(years)):
+            fam[j] += float(values.iloc[j])
 
+    return {p: {g: [round(v, 1) for v in vs] for g, vs in d.items()}
+            for p, d in rows.items()}
+
+
+def one_run(run, fd, input_fd, input_fn):
+    """everything the page plots for a single run, province by province"""
+    years, _ = by_group(fd, 'prod_all')
+    short = {name[:6]: name for name in TILES}
+    out = {'years': years}
+
+    #everything with a province dimension is kept per province. the page adds
+    #them up for "all provinces", so a filter needs no round trip
+    out['prod'] = province_groups(fd, 'prod_all_province', years, short)
+    out['cap'] = province_groups(fd, 'cap_all_province', years, short)
+    out['emission'] = {p: [round(sum(v[j] for v in d.values()) / 1000, 3)
+                           for j in range(len(years))]
+                       for p, d in province_groups(fd, 'emission_province',
+                                                   years, short).items()}
+
+    #cost split by kind, which the single cost_all rolls together
     out['cost'] = {}
     for fn, label in COST:
-        t = pd.read_csv(f"{fd}/{fn}.csv", index_col=0)
-        keep = [i for i in t.index if pr.split_name(str(i))[0] is not None]
-        out['cost'][label] = [round(float(v), 1) for v in t.loc[keep].sum()]
+        table = pd.read_csv(f"{fd}/{fn}.csv", index_col=0)
+        per = {}
+        for i in table.index:
+            prov, _tech, _st = pr.split_name(pr.SECOND_ACTIVITY.sub('', str(i)))
+            if prov not in short:
+                continue
+            acc = per.setdefault(short[prov], [0.0] * len(years))
+            values = table.loc[i]
+            for j in range(len(years)):
+                acc[j] += float(values.iloc[j])
+        out['cost'][label] = {p: [round(v, 1) for v in vs] for p, vs in per.items()}
 
-    #the T&D technologies are named <province>_Transmission_<form>. what they
-    #produce is what reaches the distribution level, so their capacity is the
-    #transmission capacity and their output is the electricity a province is
-    #actually delivered
+    #the T&D technologies are named <province>_Transmission_<form>. their
+    #capacity is the transmission capacity, and what they produce is what the
+    #province is actually delivered
     t12 = pd.read_csv(f"{fd}/Table_12_capall.csv", index_col=0)
     t11 = pd.read_csv(f"{fd}/Table_11_prodall.csv", index_col=0)
-    out['trans'] = {f: [round(float(v), 1) for v in
-                        t12.loc[[i for i in t12.index
-                                 if str(i).endswith('_Transmission_' + f)]].sum()]
-                    for f in FORMS}
+    out['trans'] = {}
+    for form in FORMS:
+        rows = [i for i in t12.index if str(i).endswith('_Transmission_' + form)]
+        per = {}
+        for i in rows:
+            prov = short.get(str(i).split('_')[0])
+            if prov:
+                per[prov] = [round(float(v), 1) for v in t12.loc[i]]
+        out['trans'][form] = per
 
-    short = {name[:6]: name for name in TILES}
     delivered = t11.loc[[i for i in t11.index if '_Transmission_' in str(i)]].copy()
     delivered.index = [str(i).split('_')[0] for i in delivered.index]
     delivered = delivered.groupby(level=0).sum()
-    out['provDemand'] = {short[k]: [round(float(v), 1) for v in delivered.loc[k]]
-                         for k in delivered.index if k in short}
+    out['demand'] = {short[k]: [round(float(v), 1) for v in delivered.loc[k]]
+                     for k in delivered.index if k in short}
 
-    e = pd.read_csv(f"{fd}/emission.csv", index_col=0)
-    out['emission'] = [round(float(x) / 1000, 1) for x in e.loc['total']]
-
-    p = pd.read_csv(f"{fd}/profiles.csv")
+    #dispatch, province by province so the same filter applies
+    p = pd.read_csv(f"{fd}/profiles.csv").copy()
+    #a storage runs two activities: one fills the store, the other gives back
+    #to the grid. both are kept, with the filling one carried negative so the
+    #chart can show charging below the axis. a battery fills on its first
+    #activity, a pumped scheme on its second
+    #todo: these are the technology names of the current workbook. the type in
+    #TechData (BAT, PUM) is what really identifies them, but profiles.csv does
+    #not carry it, so a workbook that renames them needs this changing too
+    BATTERY, PUMPED = ['bat'], ['turbpum']
     second = p.name.str.endswith('[2.]')
-    p = p[~((p.technology.eq('bat') & ~second) | (p.technology.eq('turbpum') & second))].copy()
+    charging = ((p.technology.isin(BATTERY) & ~second)
+                | (p.technology.isin(PUMPED) & second))
+    p.loc[charging, 'value'] = -p.loc[charging, 'value']
     p['g'] = p.technology.map(group_of)
+    p['prov'] = p.province.map(short)
     prof = {}
-    for y in sorted(p.year.unique()):
-        for day in sorted(p.day.unique()):
-            s = (p[(p.year == y) & (p.day == day)]
-                 .groupby(['g', 'hour']).value.sum().unstack(fill_value=0))
-            prof[f"{y}-{day}"] = {g: [round(float(v), 1) for v in s.loc[g]] if g in s.index
-                                  else [0.0] * 24 for g in ORDER}
+    for (prov, y, day), block in p.dropna(subset=['prov']).groupby(['prov', 'year', 'day']):
+        s = block.groupby(['g', 'hour']).value.sum().unstack(fill_value=0)
+        prof.setdefault(prov, {})[f"{y}-{day}"] = {
+            g: [round(float(v), 1) for v in s.loc[g]] if g in s.index else [0.0] * 24
+            for g in ORDER if g in s.index}
     out['profiles'] = prof
+
+    #the load those profiles are dispatched against. an input rather than a
+    #result, written next to them by process_results.py
+    dem = {}
+    demand_fp = f"{fd}/demand_profile.csv"
+    if os.path.exists(demand_fp):
+        dp = pd.read_csv(demand_fp)
+        #this file names a province in full, taken from its case folder, where
+        #profiles.csv carries the six character prefix the technology names use
+        dp['prov'] = dp.province.where(dp.province.isin(TILES))
+        for (prov, y, day), block in dp.dropna(subset=['prov']).groupby(['prov', 'year', 'day']):
+            hours = block.groupby('hour').value.sum()
+            dem.setdefault(prov, {})[f"{y}-{day}"] = [round(float(hours.get(h, 0.0)), 1)
+                                                      for h in range(1, 25)]
+    out['demandProfile'] = dem
 
     cp = pd.read_csv(f"{fd}/cap_all_province.csv", index_col=0)
     nuc = cp.loc[[i for i in cp.index if '_nuclear' in str(i)]].copy()
@@ -159,19 +226,30 @@ def one_run(run, fd, input_fd, input_fn):
     out['nuclear'] = {short[k]: [round(float(v)) for v in nuc.loc[k]]
                       for k in nuc.index if k in short}
 
-    pp = pd.read_csv(f"{fd}/prod_all_province.csv", index_col=0)
-    rows = {}
-    for i in pp.index:
-        prov, tech, _ = pr.split_name(pr.SECOND_ACTIVITY.sub('', str(i)))
-        if prov not in short:
-            continue
-        fam = rows.setdefault(short[prov], {}).setdefault(group_of(tech), [0.0] * len(years))
-        for j in range(len(years)):
-            fam[j] += float(pp.iloc[:, j][i])
-    out['provProd'] = {p_: {g: [round(v, 1) for v in vs] for g, vs in d.items()}
-                       for p_, d in rows.items()}
-
+    out['provinces'] = sorted(set(out['prod']) | set(out['cap']))
     out['links'] = interconnections(input_fd, input_fn) if input_fn else []
+
+    #hourly flow on each interconnector, seen from each end: a line A_B sends
+    #from A, so it is an export for A and an import for B. these rows only
+    #appear once MESSAGE_trans has written the interconnector codes into
+    #techcodes.csv, so a run built before that simply has none
+    named = {f"{a}_{b}": (a, b) for a, b, _mw in out['links']}
+    flows = {}
+    lines = p[p.technology.isin(named)]
+    for (tech, y, day), block in lines.groupby(['technology', 'year', 'day']):
+        src, dst = named[tech]
+        hours = block.groupby('hour').value.sum()
+        series = [round(float(hours.get(h, 0.0)), 1) for h in range(1, 25)]
+        key = f"{y}-{day}"
+        if src in TILES:
+            into = flows.setdefault(src, {}).setdefault(key, {})
+            into[dst] = [round(v - x, 1) for v, x in
+                         zip(into.get(dst, [0.0] * 24), series)]      #export
+        if dst in TILES:
+            into = flows.setdefault(dst, {}).setdefault(key, {})
+            into[src] = [round(v + x, 1) for v, x in
+                         zip(into.get(src, [0.0] * 24), series)]      #import
+    out['flows'] = flows
     out['built'] = datetime.datetime.fromtimestamp(
         os.path.getmtime(f"{fd}/prod_all.csv")).strftime('%d %b %Y %H:%M')
 

@@ -72,7 +72,9 @@ def matrix_code(out_pair, in_pair, activity):
     technologies. checked against the solution file for both activities of a
     battery and of a pumped scheme
     """
-    out_form, out_level = out_pair.split('-')
+    #an interconnector names the subregion too, as in e-d-Anhui_CN_NW3, so only
+    #the first two parts are the form and the level
+    out_form, out_level = out_pair.split('-')[:2]
     in_form = in_pair.split('-')[0] if in_pair else '.'
 
     return f"{out_level}{in_form}{activity}{out_form}...."
