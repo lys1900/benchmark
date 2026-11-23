@@ -456,13 +456,23 @@ $("#view").addEventListener("click", async () => {
   /* the viewer is started with --no-browser, so exactly one tab is opened
      here. if it was already running there is nothing to wait for */
   say("starting the results viewer…");
+  /* the tab is opened now, inside the click, because browsers block a
+     window.open that comes seconds later after the viewer has started */
+  const tab = window.open("", "_blank");
+  if (tab) tab.document.write("<p style='font-family:sans-serif'>starting the results viewer…</p>");
   try {
     const j = await api("/api/run", { step: "view", scenarios: [] });
     STATE = j.state; render();
-    const wait = j.said === "started" ? 2500 : 0;
-    say(j.said === "started" ? "viewer starting, opening a tab…" : "viewer already running");
-    setTimeout(() => window.open(STATE.viewerUrl, "_blank"), wait);
-  } catch (err) { say(err.message, true); }
+    /* "ready" means the workbench saw the viewer listening; "started" means
+       it gave up waiting, so check the MESSAGE viewer window for an error */
+    say(j.said === "started" ? "viewer still starting, check the MESSAGE viewer window if the tab is blank"
+        : j.said === "ready" ? "viewer ready" : "viewer already running");
+    if (tab) tab.location.href = STATE.viewerUrl;
+    else say(`the browser blocked the tab, open ${STATE.viewerUrl} yourself`, true);
+  } catch (err) {
+    if (tab) tab.close();
+    say(err.message, true);
+  }
 });
 $("#refresh").addEventListener("click", load);
 $("#paths-toggle").addEventListener("click", () => { SHOWPATHS = !SHOWPATHS; render(); });

@@ -946,7 +946,7 @@ def generate_scenario(input_fn, input_fd, main_name, with_storage, bat_all_s,
                     if tech_param[tech_name]['constraints'][con] == 1 and constraints_properties[con]['except'] != c:
                         con1c_ldr_s = ''
                         if not (isinstance(constraints_properties[con]['ldr'], float) and math.isnan(constraints_properties[con]['ldr'])):
-                            con1c_ldr_s += f':{constraints_properties[con]['ldr']}'
+                            con1c_ldr_s += f':{constraints_properties[con]["ldr"]}'
                         #con[:4] because MESSAGE relation codes are 4 characters
                         con1c_s += f"    con1c {con[:4]}{con1c_ldr_s}	c 1\n"
 

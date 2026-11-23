@@ -30,6 +30,7 @@ import socketserver
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 
 import settings
@@ -57,7 +58,8 @@ def interpreter_ok():
     """
     try:
         r = subprocess.run([sys.executable, '-c', 'import pandas, openpyxl, numpy'],
-                           capture_output=True, text=True, timeout=60)
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           universal_newlines=True, timeout=60)
         if r.returncode == 0:
             return True, ''
         last = (r.stderr or '').strip().splitlines()
@@ -308,6 +310,12 @@ def launch(step, cases, solver):
         open_window("MESSAGE viewer",
                     f'"{sys.executable}" results_viz.py --no-browser', HERE)
         record('view', '-', f"started results_viz.py on port {VIEWER_PORT}")
+        #importing pandas and the scripts can take a while on a slow machine,
+        #so wait for the port rather than letting the page open a dead tab
+        for _ in range(120):
+            if viewer_running():
+                return 'ready'
+            time.sleep(0.5)
         return 'started'
 
     raise ValueError(f"unknown step {step!r}")

@@ -12,6 +12,12 @@
     --Hydro:#2a78d6; --Wind:#1baf7a; --Solar:#eda100; --Storage:#e87ba4;
     /* cost and transmission — one-hue ordinal ramp */
     --c1:#86b6ef; --c2:#2a78d6; --c3:#104281;
+    /* the comparison page. s1-s5 are magnitude: one hue, light to dark, five
+       steps because the ramp's own steps are too close together for more.
+       up/down are the two poles of a difference, warm against cool, with a
+       neutral between them so the middle reads as nothing */
+    --s1:#86b6ef; --s2:#5598e7; --s3:#2a78d6; --s4:#1c5cab; --s5:#104281;
+    --up:#2a78d6; --down:#e34948; --mid:#f0efec;
     /* nuclear map — sequential ramp stepped from the nuclear hue */
     --n0:#EDEDF6; --n1:#a9aaea; --n2:#7672cb; --n3:#4939a6; --bad:#A93A32;
     --sans: ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -26,6 +32,8 @@
       --Coal:#8A8C93; --Gas:#d95926; --Nuclear:#9085e9; --Biomass:#008300;
       --Hydro:#3987e5; --Wind:#199e70; --Solar:#c98500; --Storage:#d55181;
       --c1:#9ec5f4; --c2:#3987e5; --c3:#184f95;
+      --s1:#184f95; --s2:#256abf; --s3:#3987e5; --s4:#6da7ec; --s5:#9ec5f4;
+      --up:#3987e5; --down:#e66767; --mid:#383835;
       --n0:#1E2530; --n1:#5649b6; --n2:#8682dd; --n3:#bcbef9; --bad:#E07C71;
     }
   }
@@ -37,6 +45,8 @@
     --Coal:#8A8C93; --Gas:#d95926; --Nuclear:#9085e9; --Biomass:#008300;
     --Hydro:#3987e5; --Wind:#199e70; --Solar:#c98500; --Storage:#d55181;
     --c1:#9ec5f4; --c2:#3987e5; --c3:#184f95;
+    --s1:#184f95; --s2:#256abf; --s3:#3987e5; --s4:#6da7ec; --s5:#9ec5f4;
+    --up:#3987e5; --down:#e66767; --mid:#383835;
     --n0:#1E2530; --n1:#5649b6; --n2:#8682dd; --n3:#bcbef9; --bad:#E07C71;
   }
 
@@ -122,6 +132,16 @@
   .mapnote { font-size:11.5px; color:var(--muted); padding:0 16px 14px; max-width:64ch; }
   .mapnote b { color:var(--ink); }
   #defs { position:absolute; width:0; height:0; }
+
+  /* the comparison page carries its own row of toggles, inside the card. each
+     label stays with the control it names when the row wraps */
+  .cmpbar { padding:10px 16px 2px; gap:8px 14px; }
+  .cmpbar select { max-width:190px; }
+  .fset { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
+  .rowlab { font-size:11px; fill:var(--ink); font-weight:600; }
+  .rowsub { font-size:10px; fill:var(--muted); }
+  td.sens { font-family:var(--mono); }
+  tr.ref td { background:color-mix(in srgb, var(--accent) 9%, transparent); }
 </style>
 
 <svg id="defs" aria-hidden="true">
@@ -152,17 +172,21 @@
 <div class="wrap">
   <div class="bar">
     <h1>MESSAGE results</h1>
-    <span class="where">E:\Work\benchmark\results</span>
+    <span class="where" id="where"></span>
   </div>
-  <p class="note">Mock-up, drawn from the csv files process_results.py wrote for CN_NW2 and CN_NW3.
-    Energy is reported in MWyr and shown here as TWh (&times;8.76).</p>
+  <p class="note" data-i18n="unitNote">Energy is reported by the model in MWyr and shown
+    here as TWh (&times;8.76).</p>
 
   <div class="filters">
-    <label class="f" for="run" data-i18n="scenario">Scenario</label>
-    <select id="run"></select>
-    <label class="f" for="prov" data-i18n="province">Province</label>
-    <select id="prov"></select>
+    <span class="filters" id="runfilters">
+      <label class="f" for="run" data-i18n="scenario">Scenario</label>
+      <select id="run"></select>
+      <label class="f" for="prov" data-i18n="province">Province</label>
+      <select id="prov"></select>
+    </span>
     <button class="tgl" id="refresh" type="button" data-i18n="refresh">Refresh</button>
+    <button class="tgl" id="multi" type="button" aria-pressed="false"
+            data-i18n="viewMultiple">View multiple</button>
     <span class="status" id="status"></span>
     <span style="flex:1"></span>
     <button class="tgl" id="lang" type="button">中文</button>
@@ -170,6 +194,82 @@
             data-i18n="tableView">Table view</button>
   </div>
 
+  <!-- the comparison page: every run in one folder, side by side -->
+  <div id="multiview" hidden style="display:flex;flex-direction:column;gap:18px">
+    <div class="tiles" id="cmptiles"></div>
+    <section class="card">
+      <header><div><h2 data-i18n="cmpTitle">Scenarios side by side</h2>
+        <p id="cmp-sub"></p></div></header>
+      <div class="filters cmpbar">
+        <span class="fset"><label class="f" for="cmp-ind" data-i18n="indicator">Indicator</label>
+          <select id="cmp-ind"></select></span>
+        <span class="fset"><label class="f" for="cmp-measure" data-i18n="measure">Measure</label>
+          <select id="cmp-measure"></select></span>
+        <span class="fset"><label class="f" for="cmp-mode" data-i18n="mode">Mode</label>
+          <select id="cmp-mode"></select></span>
+        <span class="fset"><label class="f" for="cmp-dim" data-i18n="varying">Varying</label>
+          <select id="cmp-dim"></select></span>
+        <span class="fset"><label class="f" for="cmp-ref" data-i18n="reference">Reference</label>
+          <select id="cmp-ref"></select></span>
+        <span class="fset"><label class="f" for="cmp-sort" data-i18n="sortBy">Sort</label>
+          <select id="cmp-sort"></select></span>
+        <button class="tgl" id="cmp-labels" type="button" aria-pressed="true"
+                data-i18n="barLabels">Labels</button>
+      </div>
+      <div class="slider">
+        <span class="ends" id="cmp-lo"></span>
+        <input type="range" id="cmp-year" min="0" max="8" step="1" value="2"
+               aria-label="Comparison year">
+        <span class="ends" id="cmp-hi"></span>
+        <span class="yr" id="cmp-yr"></span>
+      </div>
+      <div class="plot"><div id="cmp"></div><div class="tip" id="tip-cmp"></div></div>
+      <div class="legend" id="legend-cmp"></div>
+      <p class="mapnote" id="cmp-note"></p>
+    </section>
+
+    <section class="card">
+      <header><div><h2 data-i18n="tornadoTitle">What moves it most</h2>
+        <p id="torn-sub"></p></div></header>
+      <div class="plot"><div id="torn"></div><div class="tip" id="tip-torn"></div></div>
+      <div class="legend" id="legend-torn"></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2 data-i18n="spreadTitle">Spread over time</h2>
+        <p id="spread-sub"></p></div></header>
+      <div class="plot"><div id="spread"></div><div class="tip" id="tip-spread"></div></div>
+      <div class="legend" id="legend-spread"></div>
+    </section>
+
+    <section class="card">
+      <header>
+        <div><h2 data-i18n="tradeTitle">One against another</h2><p id="trade-sub"></p></div>
+        <div class="filters">
+          <span class="fset"><label class="f" for="trade-x" data-i18n="across">Across</label>
+            <select id="trade-x"></select></span>
+          <span class="fset"><label class="f" for="trade-y" data-i18n="up">Up</label>
+            <select id="trade-y"></select></span>
+        </div>
+      </header>
+      <div class="plot"><div id="trade"></div><div class="tip" id="tip-trade"></div></div>
+      <div class="legend" id="legend-trade"></div>
+    </section>
+
+    <section class="card">
+      <header><div><h2 data-i18n="heatTitle">Every scenario, every year</h2>
+        <p id="heat-sub"></p></div></header>
+      <div class="plot"><div id="heat"></div><div class="tip" id="tip-heat"></div></div>
+      <div class="legend" id="legend-heat"></div>
+    </section>
+
+    <section class="card" id="cmptablecard" hidden>
+      <header><div><h2 data-i18n="valuesTitle">Values</h2><p id="cmptbl-sub"></p></div></header>
+      <div class="tblwrap" id="cmptbl"></div>
+    </section>
+  </div>
+
+  <div id="singleview" style="display:flex;flex-direction:column;gap:18px">
   <div class="tiles" id="tiles"></div>
 
   <div class="grid2">
@@ -272,6 +372,7 @@
     <header><div><h2 data-i18n="valuesTitle">Values</h2><p id="tbl-sub"></p></div></header>
     <div class="tblwrap" id="tbl"></div>
   </section>
+  </div><!-- /singleview -->
 </div>
 
 <script>
@@ -279,7 +380,7 @@
    built with "results_viz.py snapshot" carries its data here and has no
    Refresh, since there is nothing behind it to refresh from */
 const INLINE = __DATA__;
-let DATA, ORDER, COSTS, TILES, RENEW, FORMS, TWH, SLICE;
+let IDX, ORDER, COSTS, TILES, RENEW, FORMS, TWH, SLICE;
 const COSTVAR = { "Investment": "c3", "Fixed O&M": "c2", "Variable O&M": "c1" };
 const FORMVAR = { "ElectricityVRE": "c1", "ElectricityNonVRE": "c3" };
 const FORMNAME = { "ElectricityVRE": "VRE", "ElectricityNonVRE": "Non-VRE" };
@@ -312,8 +413,21 @@ function swatchOf(k) {
 }
 const keyOf = (k) => css(HUE[k] || k);
 
-let RUN = "CN_NW3", DISI = 0, MAPI = 0, TABLE = false, SHOWLINKS = true, MAPSIZE = "Total";
+let RUN = "", DISI = 0, MAPI = 0, TABLE = false, SHOWLINKS = true, MAPSIZE = "Total";
 let PROV = "All", LANG = "en", VIEW = null;
+/* one run at a time: the index names them all, and a run is fetched when it
+   is picked. its dispatch, the one big thing a run carries, comes in a second
+   request so the rest of the page is drawn without waiting for it */
+const RUNS = {};
+const cur = () => RUNS[RUN];
+/* the comparison page. which folder it reads is the results folder the
+   workbench is set to, so there is nothing to pick here */
+let MULTI = false, CMP = null, CYEAR = null;
+let CMEASURE = "prod", CMODE = "abs", CDIM = "All", CREF = "", CSORT = "list";
+let CLABELS = true;
+/* the single figure the charts below the stack plot, and the two the scatter
+   puts against each other */
+let CIND = "co2", CTX = "cost", CTY = "co2";
 
 /* ---- English and Chinese ----
    nm() translates a name that came from the data (a fuel family, a province,
@@ -370,6 +484,46 @@ const ZH = {
   Qinghai: "青海", Shaanxi: "陕西", Shandong: "山东", Shanghai: "上海",
   Shanxi: "山西", Sichuan: "四川", Tianjin: "天津", Tibet: "西藏",
   Xinjiang: "新疆", Yunnan: "云南", Zhejiang: "浙江", Dummy: "虚拟区",
+  /* comparison page */
+  viewMultiple: "多情景对比", viewSingle: "单情景", cmpTitle: "情景对比",
+  measure: "指标", mode: "方式",
+  varying: "变化参数", reference: "基准情景", sortBy: "排序", barLabels: "数值标签",
+  absolute: "绝对值", shareMode: "结构占比", diffMode: "与基准之差",
+  listOrder: "情景表顺序", byName: "情景名称", byTotal: "合计", baseline: "基准",
+  scenarios: "情景数", nScenarios: "个情景",
+  inFolder: "所在文件夹",
+  cmpGenSub: "各情景发电量，按品种堆叠",
+  cmpCapSub: "各情景装机容量，按品种堆叠",
+  cmpShareSub: "占该情景发电量的比重",
+  cmpDiffSub: "与基准情景之差",
+  wholeCountry: "全国合计，不受省份筛选影响",
+  fromList: "情景参数取自",
+  noScenarioList: "该文件夹内未找到情景表（Scenario List.csv），仅显示文件夹名称",
+  noCompare: "该文件夹内没有已处理的情景",
+  loadingRun: "正在读取情景…", loadingDispatch: "正在读取逐时数据…",
+  dispatchPending: "逐时数据读取中…", unitNote: "模型以 MWyr 计量，此处换算为太瓦时（×8.76）",
+  minMax: "最小—最大", refShort: "基准",
+  anything: "全部",
+  co2Mt: "二氧化碳", systemCost: "系统成本",
+  indicator: "指标项", summary: "总览",
+  nuclearShare: "核电占比",
+  tornadoTitle: "哪些参数影响最大",
+  tornadoSub: "与基准情景之差，按差异大小排序",
+  spreadTitle: "随时间的分布",
+  spreadSub: "阴影为全部情景的区间，细线为单个情景",
+  tradeTitle: "两项指标对比",
+  tradeSub: "每个点为一个情景",
+  heatTitle: "全部情景·全部年份",
+  heatSub: "每一年内部比较，颜色越深数值越高",
+  across: "横轴", up: "纵轴",
+  aboveRef: "高于基准", belowRef: "低于基准",
+  vsRefShort: "与基准之差", eachScenario: "单个情景",
+  highest: "最高", lowest: "最低", spreadRow: "区间",
+  withinYear: "按年份内部比较", thatYear: "该年区间",
+  rank: "排位",
+  needReference: "该年份缺少基准情景数据",
+  onlyRef: "当前筛选下只剩基准情景，无可对比项",
+
 };
 /* the English side only needs the keys that are not already English: a fuel
    family or a province is its own label, a key like renCapSub is not */
@@ -413,6 +567,47 @@ const EN = {
   noFlows: "no flow data — rebuild and reprocess the run to record the interconnector codes",
   importing: "import", exporting: "export",
   demandNote: "dashed line is demand, an input",
+  viewMultiple: "View multiple", viewSingle: "View one",
+  cmpTitle: "Scenarios side by side",
+  measure: "Measure", mode: "Mode",
+  varying: "Varying", reference: "Reference", sortBy: "Sort",
+  barLabels: "Labels",
+  absolute: "Absolute", shareMode: "Share of generation",
+  diffMode: "Difference vs reference",
+  listOrder: "Scenario list order", byName: "Scenario", byTotal: "Total",
+  baseline: "baseline", scenarios: "Scenarios", nScenarios: "scenarios",
+  inFolder: "in folder",
+  cmpGenSub: "generation by source, one row per scenario",
+  cmpCapSub: "installed capacity by source, one row per scenario",
+  cmpShareSub: "share of each scenario's own generation",
+  cmpDiffSub: "difference from the reference scenario",
+  wholeCountry: "whole country — the province filter does not apply here",
+  fromList: "scenario settings from",
+  noScenarioList: "no scenario list found in this folder — runs are labelled by folder name",
+  noCompare: "no processed runs in this folder",
+  loadingRun: "reading the run…", loadingDispatch: "reading the hourly data…",
+  dispatchPending: "hourly data still loading…",
+  unitNote: "Energy is reported by the model in MWyr and shown here as TWh (×8.76).",
+  minMax: "lowest to highest", refShort: "ref",
+  anything: "All",
+  co2Mt: "CO2", systemCost: "System cost",
+  indicator: "Indicator", summary: "Summary", nuclearShare: "Nuclear share",
+  tornadoTitle: "What moves it most",
+  tornadoSub: "difference from the reference, largest first",
+  spreadTitle: "Spread over time",
+  spreadSub: "the band is every scenario, the thin lines are each of them",
+  tradeTitle: "One against another", tradeSub: "one dot per scenario",
+  heatTitle: "Every scenario, every year",
+  heatSub: "shaded down each year — darker is higher among the scenarios shown",
+  across: "Across", up: "Up",
+  aboveRef: "above the reference", belowRef: "below the reference",
+  vsRefShort: "vs reference", eachScenario: "each scenario",
+  highest: "highest", lowest: "lowest", spreadRow: "spread",
+  withinYear: "shaded within each year", thatYear: "that year",
+  rank: "rank",
+  needReference: "the reference has no value for this year",
+  onlyRef: "only the reference is left under this filter — nothing to compare it with",
+
   /* the only family whose key is not the label we want to show */
   Pumped: "Pump storage",
 };
@@ -423,7 +618,7 @@ const t = nm;
    every figure is stored province by province, so "all provinces" is a sum
    rather than a second copy of the data */
 function provList() {
-  const d = DATA.runs[RUN];
+  const d = cur();
   return PROV === "All" ? (d.provinces || []) : [PROV];
 }
 function sumGroups(perProv, n) {
@@ -448,15 +643,16 @@ function sumSeries(perProv, n) {
   return out;
 }
 function buildView() {
-  const d = DATA.runs[RUN], n = d.years.length;
+  const d = cur(), n = d.years.length;
   const cost = {};
   COSTS.forEach((k) => { cost[k] = sumSeries(d.cost[k] || {}, n); });
   const trans = {};
   FORMS.forEach((k) => { trans[k] = sumSeries(d.trans[k] || {}, n); });
-  /* dispatch: the selected provinces added up slice by slice */
+  /* dispatch: the selected provinces added up slice by slice. it may not have
+     arrived yet, since it is fetched on its own */
   const profiles = {};
   provList().forEach((p) => {
-    const block = d.profiles[p];
+    const block = (d.profiles || {})[p];
     if (!block) return;
     for (const yd in block) {
       const into = profiles[yd] || (profiles[yd] = {});
@@ -480,7 +676,7 @@ function buildView() {
     years: d.years,
     prod_all: sumGroups(d.prod, n), cap_all: sumGroups(d.cap, n),
     cost: cost, trans: trans, emission: sumSeries(d.emission, n),
-    profiles: profiles, demandProfile: demandProfile,
+    profiles: profiles, demandProfile: demandProfile, hourly: !!d.profiles,
     flows: (PROV === "All" ? null : (d.flows || {})[PROV] || {}),
     /* the map always shows every province, whatever the filter */
     provProd: d.prod, provDemand: d.demand, nuclear: d.nuclear, links: d.links,
@@ -488,6 +684,16 @@ function buildView() {
   return VIEW;
 }
 
+/* round numbers inside a range that does not start at zero, for a scatter */
+function axisTicks(lo, hi, n) {
+  const all = ticks(hi - lo, n || 4);
+  const step = all[1] || (hi - lo) || 1;
+  const out = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) {
+    out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+  }
+  return out;
+}
 function ticks(max, n) {
   n = n || 4;
   /* a series that is all zeros gave a step of zero and the loop below never
@@ -859,6 +1065,578 @@ function emissions(mount, tip) {
   wireTip(mount.parentElement, tip);
 }
 
+/* how wide a text element actually came out, for fitting two of them into one
+   gutter. zero if the page has not laid it out, which leaves the text alone */
+function width(node) {
+  try { return node.getComputedTextLength(); } catch (err) { return 0; }
+}
+
+/* ---- scenarios side by side: one horizontal stacked bar per scenario ----
+   thirty sensitivities do not fit across a page as columns, so a scenario is
+   a row here. in difference mode a row stacks away from zero in both
+   directions: what the scenario has more of to the right, less of to the left */
+function scenarioBars(mount, tip, rows, keys, unit, dp, diverging) {
+  mount.innerHTML = "";
+  if (!rows.length) { mount.innerHTML = '<p class="mapnote">' + nm("noCompare") + "</p>"; return; }
+  const rowH = rows.length > 24 ? 17 : 21, gapR = 5;
+  const left = 176, right = 66, top = 30, bottom = 8, W = 950;
+  const H = top + rows.length * (rowH + gapR) + bottom;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  /* on the page before anything is drawn into it, so a label can be measured
+     and the one beside it trimmed to what is actually left */
+  mount.appendChild(svg);
+  const x0 = left, x1 = W - right;
+
+  /* what each row stacks: everything positive in absolute and share mode,
+     and both signs in difference mode */
+  const pos = (r) => keys.reduce((s, k) => s + Math.max(0, r.vals[k] || 0), 0);
+  const neg = (r) => keys.reduce((s, k) => s + Math.min(0, r.vals[k] || 0), 0);
+  let hi = 0, lo = 0;
+  rows.forEach((r) => { hi = Math.max(hi, pos(r)); lo = Math.min(lo, neg(r)); });
+  if (diverging) { const m = Math.max(hi, -lo) || 1; hi = m; lo = -m; }
+  hi = (hi || 1) * 1.02;
+  const sx = (v) => x0 + ((v - lo) / ((hi - lo) || 1)) * (x1 - x0);
+
+  /* the scale runs along the top, so a long table of rows keeps it in sight */
+  const marks = diverging
+    ? ticks(hi, 3).concat(ticks(hi, 3).slice(1).map((v) => -v)) : ticks(hi, 5);
+  marks.forEach((v) => {
+    svg.appendChild(el("line", { class: v === 0 ? "axis" : "gridline",
+      x1: sx(v), x2: sx(v), y1: top - 8, y2: H - bottom }));
+    const lab = el("text", { class: "tick", x: sx(v), y: top - 13, "text-anchor": "middle" });
+    lab.textContent = fmt(v, dp || 0); svg.appendChild(lab);
+  });
+  const cap = el("text", { class: "tick", x: 2, y: top - 13 });
+  cap.textContent = unit; svg.appendChild(cap);
+
+  rows.forEach((r, i) => {
+    const y = top + i * (rowH + gapR);
+    /* the reference is marked by colouring its name rather than by a line of
+       its own, which a row this short has no room under */
+    const lab = el("text", { class: "rowlab", x: 0, y: y + rowH / 2 + 1,
+      fill: r.isRef ? "var(--accent)" : "var(--ink)" });
+    lab.textContent = r.label + (r.isRef ? " · " + nm("refShort") : "");
+    svg.appendChild(lab);
+    if (r.sub) {
+      const s = el("text", { class: "rowsub", x: left - 10, y: y + rowH / 2 + 1,
+        "text-anchor": "end" });
+      s.textContent = r.sub; svg.appendChild(s);
+      /* what is left of the gutter once the name has had its share. the whole
+         of it is in the tooltip, so trimming here loses nothing */
+      const room = left - 16 - width(lab);
+      let txt = r.sub;
+      while (txt.length > 4 && width(s) > room) {
+        txt = txt.slice(0, -2);
+        s.textContent = txt + "…";
+      }
+    }
+    /* the row answers the pointer anywhere, so a thin segment is not the only
+       way to read a scenario. it goes in before the segments, which then sit
+       on top of it and answer for themselves */
+    const hit = el("rect", { x: 0, y: y, width: W, height: rowH, fill: "transparent" });
+    svg.appendChild(hit);
+    /* two running bases, as the dispatch chart does: right of zero and left */
+    let up = 0, down = 0;
+    keys.forEach((k) => {
+      const v = r.vals[k] || 0;
+      if (!v) return;
+      const a = v > 0 ? up : down, b = a + v;
+      if (v > 0) up = b; else down = b;
+      const xa = sx(Math.min(a, b)), xb = sx(Math.max(a, b));
+      const w = xb - xa;
+      if (w < 0.3) return;
+      const seg = el("rect", { x: xa, y: y, width: w, height: rowH,
+        fill: fillOf(k), stroke: "var(--surface)", "stroke-width": 0.6 });
+      seg.addEventListener("mousemove", (e) => {
+        const out = [[unit, (v > 0 && diverging ? "+" : "") + fmt(v, dp || 0), swatchOf(k)]];
+        if (!diverging && r.total) out.push([nm("share"), fmt((v / r.total) * 100, 1) + "%"]);
+        if (diverging && r.refVals) out.push([nm("refShort"), fmt(r.refVals[k] || 0, dp || 0)]);
+        if (r.note) out.push([nm("varying"), r.note]);
+        showTip(tip, mount.parentElement, e, nm(k) + " · " + r.label, out);
+      });
+      svg.appendChild(seg);
+      if (CLABELS && w > 30 && rowH > 16) {
+        const t = el("text", { class: "vlab", x: (xa + xb) / 2, y: y + rowH / 2 + 3.5,
+          "text-anchor": "middle", fill: "var(--onfill)" });
+        t.textContent = fmt(Math.abs(v), dp || 0); svg.appendChild(t);
+      }
+      /* a segment too narrow for its own label still answers the pointer */
+    });
+    const end = diverging ? up + down : up;
+    const t = el("text", { class: "endlab", x: sx(Math.max(up, 0)) + 7,
+      y: y + rowH / 2 + 3.5 });
+    t.textContent = (diverging && end > 0 ? "+" : "") + fmt(end, dp || 0);
+    svg.appendChild(t);
+    hit.addEventListener("mousemove", (e) => {
+      const out = keys.filter((k) => Math.abs(r.vals[k] || 0) > 0.0001).reverse()
+        .map((k) => [nm(k), (r.vals[k] > 0 && diverging ? "+" : "") +
+                            fmt(r.vals[k], dp || 0), swatchOf(k)]);
+      out.push([nm("total"), (diverging && end > 0 ? "+" : "") + fmt(end, dp || 0) + " " + unit]);
+      if (r.co2 != null) out.push([nm("co2Mt"), fmt(r.co2, 0) + " Mt"]);
+      if (r.cost != null) out.push([nm("systemCost"), fmt(r.cost / 1e9, 2) + " bn US$"]);
+      showTip(tip, mount.parentElement, e, r.label + (r.note ? " · " + r.note : ""), out);
+    });
+  });
+  wireTip(mount.parentElement, tip);
+}
+
+/* ---- one number per scenario and year ----
+   the charts below all plot a single figure rather than a stack, so each of
+   them asks for it by name and gets the unit and the rounding with it */
+const sumAll = (per, i) => ORDER.reduce((s, k) => s + ((per[k] || [])[i] || 0), 0);
+function indValue(run, i, key) {
+  if (i < 0) return null;
+  const share = (keys) => {
+    const tot = sumAll(run.prod, i);
+    return tot ? (keys.reduce((s, k) => s + ((run.prod[k] || [])[i] || 0), 0) / tot) * 100 : 0;
+  };
+  if (key === "gen") return sumAll(run.prod, i) * TWH;
+  if (key === "cap") return sumAll(run.cap, i) / 1000;
+  if (key === "renew") return share(RENEW);
+  if (key === "nucshare") return share(["Nuclear"]);
+  if (key === "co2") return run.emission[i] || 0;
+  if (key === "cost") return (run.cost[i] || 0) / 1e9;
+  const part = key.split(":");
+  return part[0] === "cap" ? ((run.cap[part[1]] || [])[i] || 0) / 1000
+                           : ((run.prod[part[1]] || [])[i] || 0) * TWH;
+}
+function indMeta(key) {
+  const fixed = {
+    gen: [nm("totalGeneration"), "TWh", 0], cap: [nm("capacity"), "GW", 0],
+    renew: [nm("renewableShare"), "%", 1], nucshare: [nm("nuclearShare"), "%", 1],
+    co2: [nm("co2Mt"), "Mt", 0], cost: [nm("systemCost"), "bn US$", 2]
+  };
+  if (fixed[key]) return { label: fixed[key][0], unit: fixed[key][1], dp: fixed[key][2] };
+  const part = key.split(":");
+  return { label: nm(part[1]) + " " + nm(part[0] === "cap" ? "capacity" : "generation"),
+    unit: part[0] === "cap" ? "GW" : "TWh", dp: 0 };
+}
+function indicatorOptions(picked) {
+  const group = (title, items) => '<optgroup label="' + title + '">' + items.map((o) =>
+    '<option value="' + o[0] + '"' + (o[0] === picked ? " selected" : "") + ">" + o[1] +
+    "</option>").join("") + "</optgroup>";
+  return group(nm("summary"), [["gen", nm("totalGeneration")], ["cap", nm("capacity")],
+      ["renew", nm("renewableShare")], ["nucshare", nm("nuclearShare")],
+      ["co2", nm("co2Mt")], ["cost", nm("systemCost")]]) +
+    group(nm("generation"), ORDER.map((k) => ["gen:" + k, nm(k)])) +
+    group(nm("capacity"), ORDER.map((k) => ["cap:" + k, nm(k)]));
+}
+/* the value a row carries for an indicator, in the year on the slider */
+const atYear = (row, key, year) => indValue(row.run, row.run.years.indexOf(year), key);
+
+/* ---- what moves it most: each scenario against the reference ----
+   a difference has a direction, so it is drawn away from a zero line in two
+   hues that read as opposite rather than in one hue at two lengths */
+function tornado(mount, tip, rows, key, year, refRow) {
+  mount.innerHTML = "";
+  const meta = indMeta(key);
+  const base = refRow ? atYear(refRow, key, year) : null;
+  const items = rows.filter((r) => !r.isRef && atYear(r, key, year) !== null)
+    .map((r) => ({ row: r, value: atYear(r, key, year),
+                   dev: atYear(r, key, year) - (base || 0) }))
+    .sort((a, b) => Math.abs(b.dev) - Math.abs(a.dev));
+  if (!items.length || base === null) {
+    mount.innerHTML = '<p class="mapnote">' +
+      nm(base === null ? "needReference" : "onlyRef") + "</p>";
+    $("#legend-torn").innerHTML = "";
+    return;
+  }
+  const rowH = items.length > 20 ? 15 : 19, gapR = 5;
+  const left = 176, right = 70, top = 28, bottom = 8, W = 950;
+  const H = top + items.length * (rowH + gapR) + bottom;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  mount.appendChild(svg);
+  const x0 = left, x1 = W - right;
+  const m = Math.max.apply(null, items.map((i) => Math.abs(i.dev))) * 1.08 || 1;
+  const sx = (v) => (x0 + x1) / 2 + (v / m) * ((x1 - x0) / 2);
+  ticks(m, 3).concat(ticks(m, 3).slice(1).map((v) => -v)).forEach((v) => {
+    svg.appendChild(el("line", { class: v === 0 ? "axis" : "gridline",
+      x1: sx(v), x2: sx(v), y1: top - 8, y2: H - bottom }));
+    const lab = el("text", { class: "tick", x: sx(v), y: top - 13, "text-anchor": "middle" });
+    lab.textContent = (v > 0 ? "+" : "") + fmt(v, meta.dp); svg.appendChild(lab);
+  });
+  const cap = el("text", { class: "tick", x: 2, y: top - 13 });
+  cap.textContent = meta.unit; svg.appendChild(cap);
+
+  items.forEach((it, i) => {
+    const y = top + i * (rowH + gapR);
+    const lab = el("text", { class: "rowlab", x: 0, y: y + rowH / 2 + 1 });
+    lab.textContent = it.row.label; svg.appendChild(lab);
+    if (it.row.sub) {
+      const s = el("text", { class: "rowsub", x: left - 10, y: y + rowH / 2 + 1,
+        "text-anchor": "end" });
+      s.textContent = it.row.sub; svg.appendChild(s);
+      let txt = it.row.sub;
+      const room = left - 16 - width(lab);
+      while (txt.length > 4 && width(s) > room) { txt = txt.slice(0, -2); s.textContent = txt + "…"; }
+    }
+    const up = it.dev >= 0;
+    const xa = sx(Math.min(0, it.dev)), xb = sx(Math.max(0, it.dev));
+    const seg = el("path", { fill: up ? "var(--up)" : "var(--down)",
+      d: roundedEnd(xa, y, Math.max(1, xb - xa), rowH, 4, up) });
+    seg.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+      it.row.label + " · " + year,
+      [[meta.label, fmt(it.value, meta.dp) + " " + meta.unit],
+       [nm("vsRefShort"), (up ? "+" : "") + fmt(it.dev, meta.dp) + " " + meta.unit,
+        up ? css("up") : css("down")],
+       [nm("refShort"), fmt(base, meta.dp) + " " + meta.unit],
+       [nm("varying"), it.row.note || "–"]]));
+    svg.appendChild(seg);
+    const t = el("text", { class: "vlab", x: up ? xb + 6 : xa - 6, y: y + rowH / 2 + 3.5,
+      "text-anchor": up ? "start" : "end" });
+    t.textContent = (up ? "+" : "") + fmt(it.dev, meta.dp);
+    svg.appendChild(t);
+    /* the longest bar reaches the names, so its value goes inside it instead
+       of on top of them */
+    const w = width(t);
+    if (up ? xb + 8 + w > W : xa - 8 - w < x0) {
+      t.setAttribute("x", up ? xb - 6 : xa + 6);
+      t.setAttribute("text-anchor", up ? "end" : "start");
+      t.setAttribute("fill", "var(--onfill)");
+    }
+  });
+  wireTip(mount.parentElement, tip);
+  $("#legend-torn").innerHTML =
+    ['<span class="it"><span class="sw" style="background:' + css("up") + '"></span>' +
+      nm("aboveRef") + "</span>",
+     '<span class="it"><span class="sw" style="background:' + css("down") + '"></span>' +
+      nm("belowRef") + "</span>"].join("");
+}
+/* a bar rounded at the end it grows towards, flat where it leaves zero */
+function roundedEnd(x, y, w, h, r, right) {
+  r = Math.min(r, h / 2, w);
+  return right
+    ? "M" + x + "," + y + "h" + (w - r) + "a" + r + "," + r + " 0 0 1 " + r + "," + r +
+      "v" + (h - 2 * r) + "a" + r + "," + r + " 0 0 1 " + (-r) + "," + r + "h" + (-(w - r)) + "Z"
+    : "M" + (x + w) + "," + y + "h" + (-(w - r)) + "a" + r + "," + r + " 0 0 0 " + (-r) + "," + r +
+      "v" + (h - 2 * r) + "a" + r + "," + r + " 0 0 0 " + r + "," + r + "h" + (w - r) + "Z";
+}
+
+/* ---- spread over time ----
+   thirty lines cannot each have a colour, so the band is the subject: how far
+   apart the scenarios are in each year. the reference is drawn through it and
+   the two scenarios holding the edges are named */
+function spreadLines(mount, tip, rows, key, years, year, refRow) {
+  mount.innerHTML = "";
+  const meta = indMeta(key);
+  const series = rows.map((r) => ({ row: r,
+    vals: years.map((y) => atYear(r, key, y)) })).filter((s) => s.vals.every((v) => v !== null));
+  if (!series.length) { mount.innerHTML = '<p class="mapnote">' + nm("noCompare") + "</p>"; return; }
+  const W = 950, H = 300, pad = { l: 62, r: 150, t: 24, b: 26 };
+  const g = frame(W, H, pad);
+  mount.appendChild(g.svg);
+  let lo = Infinity, hi = -Infinity;
+  series.forEach((s) => s.vals.forEach((v) => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
+  if (lo > 0) lo = 0;                                 /* a magnitude starts at zero */
+  const span = (hi - lo) || 1;
+  hi += span * 0.08;
+  const n = years.length;
+  const sx = (i) => n === 1 ? (g.x0 + g.x1) / 2 : g.x0 + (i / (n - 1)) * (g.x1 - g.x0);
+  const sy = (v) => g.y1 - ((v - lo) / ((hi - lo) || 1)) * (g.y1 - g.y0);
+  for (const t of ticks(hi - lo, 4).map((v) => v + lo)) {
+    g.svg.appendChild(el("line", { class: Math.abs(t) < 1e-9 ? "axis" : "gridline",
+      x1: g.x0, x2: g.x1, y1: sy(t), y2: sy(t) }));
+    const lab = el("text", { class: "tick", x: g.x0 - 7, y: sy(t) + 3.5, "text-anchor": "end" });
+    lab.textContent = fmt(t, meta.dp); g.svg.appendChild(lab);
+  }
+  unitCap(g, meta.unit);
+  years.forEach((y, i) => {
+    const lab = el("text", { class: "tick", x: sx(i), y: g.y1 + 16, "text-anchor": "middle" });
+    lab.textContent = y; g.svg.appendChild(lab);
+  });
+  /* the year the rest of the page is showing, marked so the two tie together */
+  const yi = years.indexOf(year);
+  if (yi >= 0) {
+    g.svg.appendChild(el("line", { x1: sx(yi), x2: sx(yi), y1: g.y0, y2: g.y1,
+      stroke: "var(--accent)", "stroke-width": 1, opacity: .35 }));
+  }
+  /* the band between the lowest and highest scenario in each year */
+  const low = years.map((_, i) => Math.min.apply(null, series.map((s) => s.vals[i])));
+  const high = years.map((_, i) => Math.max.apply(null, series.map((s) => s.vals[i])));
+  let d = "M" + sx(0) + "," + sy(high[0]);
+  high.forEach((v, i) => { d += "L" + sx(i) + "," + sy(v); });
+  for (let i = n - 1; i >= 0; i--) d += "L" + sx(i) + "," + sy(low[i]);
+  g.svg.appendChild(el("path", { d: d + "Z", fill: "var(--axis)", opacity: .3 }));
+  /* every scenario, as context rather than as something to tell apart. the
+     pointer is what names them, so each line keeps a handle on itself and
+     none of them takes the pointer away from the crosshair underneath */
+  const drawn = [];
+  series.forEach((s) => {
+    if (s.row.isRef) return;
+    const path = el("path", { fill: "none", stroke: "var(--line-strong)",
+      "stroke-width": 1, opacity: .75, "pointer-events": "none",
+      d: "M" + s.vals.map((v, i) => sx(i) + "," + sy(v)).join("L") });
+    g.svg.appendChild(path);
+    drawn.push({ s: s, path: path });
+  });
+  const ref = series.find((s) => s.row.isRef);
+  if (ref) {
+    const path = el("path", { fill: "none", stroke: "var(--accent)", "stroke-width": 2.5,
+      "stroke-linejoin": "round", "pointer-events": "none",
+      d: "M" + ref.vals.map((v, i) => sx(i) + "," + sy(v)).join("L") });
+    g.svg.appendChild(path);
+    drawn.push({ s: ref, path: path, ref: true });
+  }
+  /* which line the pointer is on, if it is on one: the value each of them
+     holds at that moment, against where the pointer is */
+  const plain = (d) => {
+    d.path.setAttribute("stroke", d.ref ? "var(--accent)" : "var(--line-strong)");
+    d.path.setAttribute("stroke-width", d.ref ? 2.5 : 1);
+    d.path.setAttribute("opacity", d.ref ? 1 : .75);
+  };
+  const nearest = (xv, yv) => {
+    const t = Math.max(0, Math.min(n - 1, ((xv - g.x0) / ((g.x1 - g.x0) || 1)) * (n - 1)));
+    const i0 = Math.min(n - 2, Math.floor(t)), f = n === 1 ? 0 : t - i0;
+    let best = null, bestGap = 9;                   /* viewBox units, about 3mm */
+    drawn.forEach((d) => {
+      const a = d.s.vals[i0], b = d.s.vals[Math.min(n - 1, i0 + 1)];
+      const gap = Math.abs(sy(a + (b - a) * f) - yv);
+      if (gap < bestGap) { bestGap = gap; best = d; }
+    });
+    return best;
+  };
+  /* the scenarios holding the edges, and the reference, named at the end. one
+     run is often two of those three, so each is named once and they are
+     stacked apart rather than written over each other */
+  const last = (s) => s.vals[n - 1];
+  const ends = [];
+  const add = (s, accent) => {
+    if (s && !ends.some((e) => e.s.row.name === s.row.name)) ends.push({ s: s, accent: accent });
+  };
+  add(ref, true);
+  add(series.slice().sort((a, b) => last(b) - last(a))[0], false);
+  add(series.slice().sort((a, b) => last(a) - last(b))[0], false);
+  ends.sort((a, b) => last(b.s) - last(a.s));
+  let prev = -99;
+  ends.forEach((e2) => {
+    const yy = Math.max(sy(last(e2.s)), prev + 13); prev = yy;
+    const t = el("text", { class: "endlab", x: g.x1 + 8, y: yy + 3.5,
+      fill: e2.accent ? "var(--accent)" : "var(--ink)" });
+    t.textContent = e2.s.row.label + " " + fmt(last(e2.s), meta.dp);
+    g.svg.appendChild(t);
+  });
+  /* a crosshair rather than thirty hit targets: the year is what is read here */
+  const cross = el("line", { class: "axis", y1: g.y0, y2: g.y1, opacity: 0, "stroke-width": 1.5 });
+  g.svg.appendChild(cross);
+  const hit = el("rect", { x: g.x0, y: g.y0, width: g.x1 - g.x0, height: g.y1 - g.y0,
+    fill: "transparent" });
+  hit.addEventListener("mousemove", (e) => {
+    const b = g.svg.getBoundingClientRect();
+    const xv = ((e.clientX - b.left) / b.width) * W;
+    const yv = ((e.clientY - b.top) / b.height) * H;
+    let i = Math.round((xv - g.x0) / ((g.x1 - g.x0) || 1) * (n - 1));
+    i = Math.max(0, Math.min(n - 1, i));
+    cross.setAttribute("x1", sx(i)); cross.setAttribute("x2", sx(i)); cross.setAttribute("opacity", .55);
+    const sorted = series.slice().sort((a, b2) => b2.vals[i] - a.vals[i]);
+    drawn.forEach(plain);
+    /* on a line: that scenario is what the pointer is asking about */
+    const on = nearest(xv, yv);
+    if (on) {
+      on.path.setAttribute("stroke", on.ref ? "var(--accent)" : "var(--ink)");
+      on.path.setAttribute("stroke-width", on.ref ? 3 : 2);
+      on.path.setAttribute("opacity", 1);
+      g.svg.insertBefore(on.path, cross);           /* clear of the ones it crosses */
+      const out = [];
+      if (on.s.row.note) out.push([nm("varying"), on.s.row.note]);
+      out.push([meta.label, fmt(on.s.vals[i], meta.dp) + " " + meta.unit,
+                on.ref ? css("accent") : css("ink")]);
+      if (ref && !on.ref) {
+        const d = on.s.vals[i] - ref.vals[i];
+        out.push([nm("vsRefShort") + " · " + ref.row.label,
+                  (d >= 0 ? "+" : "") + fmt(d, meta.dp) + " " + meta.unit]);
+      }
+      out.push([nm("rank"), (sorted.findIndex((s) => s.row.name === on.s.row.name) + 1) +
+                " / " + sorted.length]);
+      showTip(tip, mount.parentElement, e,
+        on.s.row.label + (on.ref ? " · " + nm("refShort") : "") + " · " + years[i], out);
+      return;
+    }
+    /* between the lines: what the year holds as a whole */
+    const out = [[nm("highest") + " · " + sorted[0].row.label,
+                  fmt(sorted[0].vals[i], meta.dp) + " " + meta.unit]];
+    if (ref) out.push([nm("refShort") + " · " + ref.row.label,
+                       fmt(ref.vals[i], meta.dp) + " " + meta.unit, css("accent")]);
+    const lastOne = sorted[sorted.length - 1];
+    out.push([nm("lowest") + " · " + lastOne.row.label,
+              fmt(lastOne.vals[i], meta.dp) + " " + meta.unit]);
+    out.push([nm("spreadRow"), fmt(sorted[0].vals[i] - lastOne.vals[i], meta.dp) + " " + meta.unit]);
+    showTip(tip, mount.parentElement, e, meta.label + " · " + years[i], out);
+  });
+  hit.addEventListener("mouseleave", () => {
+    cross.setAttribute("opacity", 0);
+    drawn.forEach(plain);
+  });
+  g.svg.appendChild(hit);
+  wireTip(mount.parentElement, tip);
+  $("#legend-spread").innerHTML =
+    ['<span class="it"><span style="width:16px;height:0;flex:none;border-top:2.5px solid ' +
+      css("accent") + '"></span>' + nm("refShort") + "</span>",
+     '<span class="it"><span style="width:16px;height:0;flex:none;border-top:1px solid ' +
+      css("line-strong") + '"></span>' + nm("eachScenario") + "</span>",
+     '<span class="it"><span class="sw" style="background:' + css("axis") +
+      ';opacity:.45"></span>' + nm("spreadRow") + "</span>"].join("");
+}
+
+/* ---- one indicator against another, a dot per scenario ----
+   a scatter has to tell every pair of marks apart, so nothing here carries a
+   hue but the reference */
+function tradeoff(mount, tip, rows, xKey, yKey, year, refRow) {
+  mount.innerHTML = "";
+  const mx = indMeta(xKey), my = indMeta(yKey);
+  const pts = rows.map((r) => ({ row: r, x: atYear(r, xKey, year), y: atYear(r, yKey, year) }))
+    .filter((p) => p.x !== null && p.y !== null);
+  if (pts.length < 2) {
+    mount.innerHTML = '<p class="mapnote">' +
+      nm(rows.length ? "onlyRef" : "noCompare") + "</p>";
+    $("#legend-trade").innerHTML = "";
+    return;
+  }
+  const W = 950, H = 330, pad = { l: 66, r: 120, t: 24, b: 44 };
+  const g = frame(W, H, pad);
+  mount.appendChild(g.svg);
+  /* room either side of the dots, but never below zero for something that
+     cannot be negative: a scale that opens at -600 Mt reads as an error */
+  const spanOf = (vs) => {
+    let lo = Math.min.apply(null, vs), hi = Math.max.apply(null, vs);
+    const pad2 = (hi - lo) * 0.12 || Math.abs(hi) * 0.05 || 1;
+    return [lo >= 0 ? Math.max(0, lo - pad2) : lo - pad2, hi + pad2];
+  };
+  const [xlo, xhi] = spanOf(pts.map((p) => p.x)), [ylo, yhi] = spanOf(pts.map((p) => p.y));
+  const sx = (v) => g.x0 + ((v - xlo) / ((xhi - xlo) || 1)) * (g.x1 - g.x0);
+  const sy = (v) => g.y1 - ((v - ylo) / ((yhi - ylo) || 1)) * (g.y1 - g.y0);
+  axisTicks(ylo, yhi).forEach((v) => {
+    g.svg.appendChild(el("line", { class: "gridline", x1: g.x0, x2: g.x1, y1: sy(v), y2: sy(v) }));
+    const lab = el("text", { class: "tick", x: g.x0 - 7, y: sy(v) + 3.5, "text-anchor": "end" });
+    lab.textContent = fmt(v, my.dp); g.svg.appendChild(lab);
+  });
+  axisTicks(xlo, xhi).forEach((v) => {
+    g.svg.appendChild(el("line", { class: "gridline", x1: sx(v), x2: sx(v), y1: g.y0, y2: g.y1 }));
+    const lab = el("text", { class: "tick", x: sx(v), y: g.y1 + 16, "text-anchor": "middle" });
+    lab.textContent = fmt(v, mx.dp); g.svg.appendChild(lab);
+  });
+  unitCap(g, my.unit);
+  const xcap = el("text", { class: "tick", x: (g.x0 + g.x1) / 2, y: H - 4, "text-anchor": "middle" });
+  xcap.textContent = mx.label + " · " + mx.unit; g.svg.appendChild(xcap);
+  /* the reference first, as a ring the dots can sit on top of */
+  if (refRow) {
+    const p = pts.find((q) => q.row.isRef);
+    if (p) g.svg.appendChild(el("circle", { cx: sx(p.x), cy: sy(p.y), r: 11,
+      fill: "none", stroke: "var(--accent)", "stroke-width": 1.5, opacity: .5 }));
+  }
+  /* the extremes carry their name; the rest answer the pointer */
+  const named = new Set();
+  [[(a, b) => b.x - a.x], [(a, b) => a.x - b.x], [(a, b) => b.y - a.y], [(a, b) => a.y - b.y]]
+    .forEach((s) => named.add(pts.slice().sort(s[0])[0].row.name));
+  /* the reference goes on last so a crowded middle cannot bury it */
+  pts.slice().sort((a, b) => (a.row.isRef ? 1 : 0) - (b.row.isRef ? 1 : 0)).forEach((p) => {
+    const isRef = p.row.isRef;
+    const c = el("circle", { cx: sx(p.x), cy: sy(p.y), r: isRef ? 6 : 5,
+      fill: isRef ? "var(--accent)" : "var(--s3)",
+      stroke: "var(--surface)", "stroke-width": 2 });
+    c.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+      p.row.label + " · " + year,
+      [[mx.label, fmt(p.x, mx.dp) + " " + mx.unit],
+       [my.label, fmt(p.y, my.dp) + " " + my.unit],
+       [nm("varying"), p.row.note || "–"]]));
+    g.svg.appendChild(c);
+    if (named.has(p.row.name) || isRef) {
+      /* the reference label sits above its dot, where the cluster it is
+         usually in the middle of leaves room */
+      const t = el("text", { class: "endlab",
+        x: sx(p.x) + (isRef ? 0 : 9), y: sy(p.y) + (isRef ? -11 : 3.5),
+        "text-anchor": isRef ? "middle" : "start",
+        fill: isRef ? "var(--accent)" : "var(--ink)" });
+      t.textContent = p.row.label; g.svg.appendChild(t);
+    }
+  });
+  wireTip(mount.parentElement, tip);
+  $("#legend-trade").innerHTML =
+    ['<span class="it"><span class="sw" style="background:' + css("s3") +
+      ';border-radius:50%"></span>' + nm("eachScenario") + "</span>",
+     '<span class="it"><span class="sw" style="background:' + css("accent") +
+      ';border-radius:50%"></span>' + nm("refShort") + "</span>"].join("");
+}
+
+/* ---- every scenario, every year ----
+   magnitude on a grid, so one hue light to dark and a legend saying what the
+   steps are worth */
+function heatGrid(mount, tip, rows, key, years) {
+  mount.innerHTML = "";
+  const meta = indMeta(key);
+  const cells = rows.map((r) => ({ row: r, vals: years.map((y) => atYear(r, key, y)) }))
+    .filter((c) => c.vals.some((v) => v !== null));
+  if (!cells.length) { mount.innerHTML = '<p class="mapnote">' + nm("noCompare") + "</p>"; return; }
+  const left = 176, top = 24, cellH = cells.length > 20 ? 15 : 19, gap = 2;
+  const W = 950, cellW = Math.min(76, (W - left - 10) / years.length - gap);
+  const H = top + cells.length * (cellH + gap) + 6;
+  const svg = el("svg", { viewBox: "0 0 " + W + " " + H, role: "img" });
+  mount.appendChild(svg);
+  /* shaded down each year rather than over the whole grid: the scenarios in
+     one year differ by a few per cent, and against a scale that has to hold
+     every year as well, every row comes out the same colour */
+  const steps = ["s1", "s2", "s3", "s4", "s5"];
+  const col = years.map((_, j) => {
+    const vs = cells.map((c) => c.vals[j]).filter((v) => v !== null);
+    return vs.length ? [Math.min.apply(null, vs), Math.max.apply(null, vs)] : [0, 0];
+  });
+  /* by place in the year rather than by distance across it: one scenario at
+     zero, or one far above the rest, otherwise crowds every other row into
+     the same step and the grid comes out one flat colour. equal values share
+     a step, so a year where nothing differs still reads as one colour */
+  const order = years.map((_, j) =>
+    cells.map((c) => c.vals[j]).filter((v) => v !== null).sort((a, b) => a - b));
+  const band = (v, j) => {
+    if (v === null) return null;
+    const vs = order[j];
+    if (!vs.length || vs[vs.length - 1] - vs[0] < Math.abs(vs[0]) * 1e-9) {
+      return steps.length - 1;                        /* nothing to tell apart */
+    }
+    let below = 0;
+    while (below < vs.length && vs[below] < v) below++;
+    return Math.min(steps.length - 1, Math.floor((below / vs.length) * steps.length));
+  };
+  years.forEach((y, j) => {
+    const lab = el("text", { class: "tick", x: left + j * (cellW + gap) + cellW / 2,
+      y: top - 8, "text-anchor": "middle" });
+    lab.textContent = y; svg.appendChild(lab);
+  });
+  cells.forEach((c, i) => {
+    const y = top + i * (cellH + gap);
+    const lab = el("text", { class: "rowlab", x: 0, y: y + cellH / 2 + 1 });
+    lab.textContent = c.row.label; svg.appendChild(lab);
+    if (c.row.sub) {
+      const s = el("text", { class: "rowsub", x: left - 10, y: y + cellH / 2 + 1,
+        "text-anchor": "end" });
+      s.textContent = c.row.sub; svg.appendChild(s);
+      let txt = c.row.sub;
+      const room = left - 16 - width(lab);
+      while (txt.length > 4 && width(s) > room) { txt = txt.slice(0, -2); s.textContent = txt + "…"; }
+    }
+    c.vals.forEach((v, j) => {
+      const b = band(v, j);
+      const x = left + j * (cellW + gap);
+      const cell = el("rect", { x: x, y: y, width: cellW, height: cellH, rx: 2,
+        fill: b === null ? "var(--inset)" : css(steps[b]) });
+      cell.addEventListener("mousemove", (e) => showTip(tip, mount.parentElement, e,
+        c.row.label + " · " + years[j],
+        [[meta.label, v === null ? "–" : fmt(v, meta.dp) + " " + meta.unit,
+          b === null ? null : css(steps[b])],
+         /* what the shading is against, so a year where every scenario is
+            alike cannot read as a year where they differ */
+         [nm("thatYear"), fmt(col[j][0], meta.dp) + "–" + fmt(col[j][1], meta.dp) +
+          " " + meta.unit],
+         [nm("varying"), c.row.note || "–"]]));
+      svg.appendChild(cell);
+    });
+  });
+  wireTip(mount.parentElement, tip);
+  $("#legend-heat").innerHTML =
+    '<span class="it">' + nm("lowest") + "</span>" +
+    steps.map((s) => '<span class="it"><span class="sw" style="background:' +
+      css(s) + '"></span></span>').join("") +
+    '<span class="it">' + nm("highest") + " · " + nm("withinYear") + "</span>";
+}
+
 /* ---- nuclear map: a schematic tile grid, not real boundaries ---- */
 function tileMap(mount, tip, year, yi) {
   mount.innerHTML = "";
@@ -1046,6 +1824,259 @@ function table() {
   $("#tbl-sub").textContent = RUN + ", generation, capacity, cost and transmission by year.";
 }
 
+/* ---- the comparison page ----
+   every run in one folder, read from its summary files only. the scenario
+   list next to the runs says what each one varies, which is what the Varying
+   filter and the row labels are built from */
+function cmpRuns() { return (CMP && CMP.runs) || []; }
+function cmpCols() { return (CMP && CMP.columns) || []; }
+
+/* the years every scenario in the folder has in common */
+function cmpYears() {
+  const runs = cmpRuns();
+  if (!runs.length) return [];
+  return runs[0].years.filter((y) => runs.every((r) => r.years.indexOf(y) >= 0));
+}
+
+/* the settings most of the folder shares: the baseline a sweep moves away
+   from. taken as the commonest value of each column rather than from a named
+   run, so it is right whether or not the base case itself was processed */
+function cmpBase() {
+  const base = {};
+  cmpCols().forEach((c) => {
+    const seen = {};
+    cmpRuns().forEach((r) => {
+      const v = (r.attrs || {})[c];
+      if (v) seen[v] = (seen[v] || 0) + 1;
+    });
+    const best = Object.keys(seen).sort((a, b) => seen[b] - seen[a])[0];
+    if (best) base[c] = best;
+  });
+  return base;
+}
+/* which columns a scenario moves, and how it reads in one line */
+function varyOf(run, base) {
+  return cmpCols().filter((c) => ((run.attrs || {})[c] || "") !== (base[c] || ""))
+    .filter((c) => c !== "Note");
+}
+function varyNote(run, base) {
+  /* a run the scenario list does not mention has nothing to say here, rather
+     than every setting at once */
+  if (!run.attrs || !Object.keys(run.attrs).length) return "";
+  const v = varyOf(run, base);
+  if (!v.length) return nm("baseline");
+  return v.map((c) => c + " " + ((run.attrs || {})[c] || "–")).join(", ");
+}
+/* an upper bound only: what fits is measured when the row is drawn, and the
+   whole of it is in the tooltip either way */
+const shortNote = (s) => (s.length > 44 ? s.slice(0, 43) + "…" : s);
+
+/* ---- where a scenario sits in a sweep ----
+   what a run is set to for the chosen setting. a run that does not move that
+   setting is at the folder's baseline for it, which is what puts the
+   reference in among the sweep rather than above it */
+function dimOf(run, base, col) {
+  return ((run.attrs || {})[col] || base[col] || "");
+}
+/* a sweep is read in order of its own setting, so 70, 80, 90, 100, 120, 130
+   rather than the order the scenario list happens to be written in. per cent
+   signs are ignored and "inf" sorts last; anything else falls back to text */
+function dimKey(value) {
+  const s = String(value).trim();
+  if (/^inf(inity)?$/i.test(s)) return Infinity;
+  const m = s.match(/^-?\d+(\.\d+)?/);
+  return m && /^-?\d+(\.\d+)?\s*%?$/.test(s) ? parseFloat(m[0]) : NaN;
+}
+function byDim(col) {
+  return (a, b) => {
+    const ka = dimKey(a.dim), kb = dimKey(b.dim);
+    if (ka === ka && kb === kb) return ka - kb;        /* both numbers */
+    if (ka === ka) return -1;                          /* numbers first */
+    if (kb === kb) return 1;
+    return String(a.dim).localeCompare(String(b.dim), undefined, { numeric: true });
+  };
+}
+
+function cmpRows() {
+  const runs = cmpRuns(), base = cmpBase();
+  const yi = (r) => r.years.indexOf(CYEAR);
+  const mul = CMEASURE === "cap" ? 1 / 1000 : TWH;
+  const ref = runs.find((r) => r.name === CREF);
+  const refVals = {};
+  if (ref && yi(ref) >= 0) {
+    ORDER.forEach((k) => { refVals[k] = (ref[CMEASURE][k] || [])[yi(ref)] * mul || 0; });
+  }
+  let rows = runs.filter((r) => yi(r) >= 0).map((r) => {
+    const i = yi(r);
+    const raw = {};
+    ORDER.forEach((k) => { raw[k] = ((r[CMEASURE][k] || [])[i] || 0) * mul; });
+    const total = ORDER.reduce((s, k) => s + raw[k], 0);
+    const vals = {};
+    ORDER.forEach((k) => {
+      vals[k] = CMODE === "share" ? (total ? (raw[k] / total) * 100 : 0)
+        : CMODE === "diff" ? raw[k] - (refVals[k] || 0) : raw[k];
+    });
+    const vary = varyOf(r, base);
+    let note = varyNote(r, base);
+    let sub = note;
+    /* with one setting chosen, every row says where it stands on that
+       setting, the reference included: it is why it sits where it does */
+    if (CDIM !== "All") {
+      const other = vary.filter((c) => c !== CDIM)
+        .map((c) => c + " " + ((r.attrs || {})[c] || "–"));
+      sub = CDIM + " " + (dimOf(r, base, CDIM) || "–") +
+        (other.length ? " · " + other.join(", ") : "");
+      note = sub;
+    }
+    return { name: r.name, label: r.label, sub: shortNote(sub), run: r,
+      note: note, vary: vary, dim: dimOf(r, base, CDIM),
+      vals: vals, raw: raw, total: total, refVals: refVals,
+      co2: r.emission[i], cost: r.cost[i], isRef: r.name === CREF };
+  });
+  /* one dimension at a time: the sweep of the chosen setting, and whatever
+     run sits at the baseline for it to be read against */
+  if (CDIM !== "All") {
+    rows = rows.filter((r) => r.vary.length === 0 ||
+      (r.vary.length === 1 && r.vary[0] === CDIM) || r.isRef);
+  }
+  const sum = (r) => ORDER.reduce((s, k) => s + (r.vals[k] || 0), 0);
+  if (CSORT === "name") rows.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  else if (CSORT === "total") rows.sort((a, b) => sum(b) - sum(a));
+  else if (CSORT !== "list") rows.sort((a, b) => (b.vals[CSORT] || 0) - (a.vals[CSORT] || 0));
+  /* the scenario list order means the order of the sweep once there is one */
+  else if (CDIM !== "All") rows.sort(byDim(CDIM));
+  return rows;
+}
+
+function cmpTiles(rows) {
+  if (!rows.length) { $("#cmptiles").innerHTML = ""; return; }
+  const sum = (r) => ORDER.reduce((s, k) => s + (r.raw[k] || 0), 0);
+  const unit = CMEASURE === "cap" ? "GW" : "TWh";
+  const span = (vs, d) => vs.length < 2 ? fmt(vs[0], d)
+    : fmt(Math.min.apply(null, vs), d) + "–" + fmt(Math.max.apply(null, vs), d);
+  const tot = rows.map(sum), co2 = rows.map((r) => r.co2 || 0);
+  const cost = rows.map((r) => (r.cost || 0) / 1e9);
+  const ren = rows.map((r) => {
+    const t = sum(r) || 1;
+    return (RENEW.reduce((s, k) => s + (r.raw[k] || 0), 0) / t) * 100;
+  });
+  /* the whole path is in the page header; the tile only needs its name */
+  const folder = String(CMP.folder || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  const cells = [
+    [nm("scenarios"), String(rows.length), "", nm("inFolder") + " " + folder],
+    [nm(CMEASURE === "cap" ? "capacity" : "generation") + " " + CYEAR, span(tot, 0), unit, nm("minMax")],
+    [nm("renewableShare"), span(ren, 1), "%", nm("windHydroSolar")],
+    [nm("co2") + " " + CYEAR, span(co2, 0), "Mt", nm("minMax")],
+    [nm("systemCost"), span(cost, 2), "bn US$", nm("minMax")]
+  ];
+  $("#cmptiles").innerHTML = cells.map((c) =>
+    '<div class="tile"><div class="k">' + c[0] + '</div><div class="v">' + c[1] +
+    '<span class="u">' + c[2] + '</span></div><div class="d">' + c[3] + "</div></div>").join("");
+}
+
+function cmpTable(rows) {
+  const unit = CMODE === "share" ? "%" : CMEASURE === "cap" ? "GW" : "TWh";
+  const dp = 1;
+  let head = "<tr><th>" + nm("scenario") + "</th><th>" + nm("varying") + "</th>" +
+    ORDER.map((k) => "<th>" + nm(k) + "</th>").join("") +
+    "<th>" + nm("total") + " " + unit + "</th><th>" + nm("co2Mt") +
+    " Mt</th><th>" + nm("systemCost") + " bn</th></tr>";
+  const body = rows.map((r) => {
+    const tot = ORDER.reduce((s, k) => s + (r.vals[k] || 0), 0);
+    return '<tr class="' + (r.isRef ? "ref" : "") + '"><td class="sens">' + r.label +
+      "</td><td>" + (r.note || "") + "</td>" +
+      ORDER.map((k) => "<td>" + fmt(r.vals[k] || 0, dp) + "</td>").join("") +
+      "<td><b>" + fmt(tot, dp) + "</b></td><td>" + fmt(r.co2 || 0, 0) +
+      "</td><td>" + fmt((r.cost || 0) / 1e9, 2) + "</td></tr>";
+  }).join("");
+  $("#cmptbl").innerHTML = "<table>" + head + body + "</table>";
+  $("#cmptbl-sub").textContent = rows.length + " " + nm("nScenarios") +
+    " · " + CYEAR + " · " +
+    nm(CMODE === "share" ? "cmpShareSub" : CMODE === "diff" ? "cmpDiffSub"
+      : CMEASURE === "cap" ? "cmpCapSub" : "cmpGenSub");
+}
+
+function fillCmpSelects() {
+  const years = cmpYears();
+  if (years.indexOf(CYEAR) < 0) CYEAR = years.indexOf(2030) >= 0 ? 2030 : years[years.length - 1];
+  const opts = (items, picked) => items.map((o) =>
+    '<option value="' + o[0] + '"' + (String(o[0]) === String(picked) ? " selected" : "") +
+    ">" + o[1] + "</option>").join("");
+
+  /* the year runs along a slider, as it does on the dispatch and map cards */
+  const slider = $("#cmp-year");
+  slider.max = Math.max(0, years.length - 1);
+  slider.value = Math.max(0, years.indexOf(CYEAR));
+  $("#cmp-lo").textContent = years[0] || "";
+  $("#cmp-hi").textContent = years[years.length - 1] || "";
+  $("#cmp-yr").textContent = CYEAR || "";
+  $("#cmp-measure").innerHTML = opts([["prod", nm("generation") + " TWh"],
+    ["cap", nm("capacity") + " GW"]], CMEASURE);
+  $("#cmp-mode").innerHTML = opts([["abs", nm("absolute")], ["share", nm("shareMode")],
+    ["diff", nm("diffMode")]], CMODE);
+  /* only the settings this folder actually moves are worth offering */
+  const base = cmpBase();
+  const moved = cmpCols().filter((c) => c !== "Note" &&
+    cmpRuns().some((r) => ((r.attrs || {})[c] || "") !== (base[c] || "")));
+  $("#cmp-dim").innerHTML = opts([["All", nm("anything")]]
+    .concat(moved.map((c) => [c, c])), CDIM);
+  const runs = cmpRuns();
+  if (!runs.some((r) => r.name === CREF)) {
+    /* the run that moves least is the one a sweep is read against */
+    const best = runs.slice().sort((a, b) =>
+      varyOf(a, base).length - varyOf(b, base).length)[0];
+    CREF = best ? best.name : "";
+  }
+  /* always offered, not only in difference mode: which run the others are
+     read against is a choice whatever is being shown */
+  $("#cmp-ref").innerHTML = opts(runs.map((r) => [r.name, r.label]), CREF);
+  $("#cmp-ind").innerHTML = indicatorOptions(CIND);
+  $("#trade-x").innerHTML = indicatorOptions(CTX);
+  $("#trade-y").innerHTML = indicatorOptions(CTY);
+  /* with a setting chosen, the default order is that setting's own */
+  $("#cmp-sort").innerHTML = opts([["list", CDIM === "All" ? nm("listOrder") : CDIM],
+    ["name", nm("byName")], ["total", nm("byTotal")]]
+    .concat(ORDER.map((k) => [k, nm(k)])), CSORT);
+}
+
+function drawCompare() {
+  if (!CMP) return;
+  fillCmpSelects();
+  const rows = cmpRows();
+  const unit = CMODE === "share" ? "%" : CMEASURE === "cap" ? "GW" : "TWh";
+  const dp = CMODE === "share" ? 1 : 0;
+  legendInto("#legend-cmp", ORDER, swatchOf);
+  $("#cmp-sub").textContent = rows.length + " " + nm("nScenarios") +
+    " · " + CYEAR + " · " +
+    nm(CMODE === "share" ? "cmpShareSub" : CMODE === "diff" ? "cmpDiffSub"
+      : CMEASURE === "cap" ? "cmpCapSub" : "cmpGenSub") +
+    (CMODE === "diff" ? " (" + (rows.find((r) => r.isRef) || { label: "" }).label + ")" : "") +
+    " · " + nm("wholeCountry");
+  $("#cmp-note").textContent = CMP.listFile
+    ? nm("fromList") + " " + CMP.listFile + (CMP.skipped.length
+        ? " · " + CMP.skipped.join("; ") : "")
+    : nm("noScenarioList");
+  step("compare", () => scenarioBars($("#cmp"), $("#tip-cmp"), rows, ORDER,
+    unit, dp, CMODE === "diff"));
+  step("compare tiles", () => cmpTiles(rows));
+  step("compare table", () => cmpTable(rows));
+
+  /* the four charts below the stack, all on one figure at a time */
+  const meta = indMeta(CIND), years = cmpYears();
+  const ref = rows.find((r) => r.isRef);
+  const who = rows.length + " " + nm("nScenarios");
+  $("#torn-sub").textContent = who + " · " + meta.label + " · " + CYEAR + " · " +
+    nm("tornadoSub") + (ref ? " (" + ref.label + ")" : "");
+  $("#spread-sub").textContent = who + " · " + meta.label + " · " + nm("spreadSub");
+  $("#trade-sub").textContent = who + " · " + CYEAR + " · " + nm("tradeSub");
+  $("#heat-sub").textContent = who + " · " + meta.label + " · " + nm("heatSub");
+  step("tornado", () => tornado($("#torn"), $("#tip-torn"), rows, CIND, CYEAR, ref));
+  step("spread", () => spreadLines($("#spread"), $("#tip-spread"), rows, CIND,
+    years, CYEAR, ref));
+  step("tradeoff", () => tradeoff($("#trade"), $("#tip-trade"), rows, CTX, CTY, CYEAR, ref));
+  step("heat", () => heatGrid($("#heat"), $("#tip-heat"), rows, CIND, years));
+}
+
 const RSTYLE = (k) => RENEW.indexOf(k) >= 0
   ? { color: keyOf(k), dash: null }
   : { color: keyOf(k), dash: k === "Battery" ? "2 3" : "6 3" };
@@ -1054,6 +2085,15 @@ let RKEYS = [];
 function drawDispatch() {
   const d = VIEW, y = d.years[DISI];
   $("#dis-yr").textContent = y;
+  /* the hourly files are read on their own, so these two cards say so until
+     they arrive rather than drawing an empty day */
+  if (!d.hourly) {
+    $("#dis-sub").textContent = nm("dispatchPending");
+    $("#dis").innerHTML = '<p class="mapnote">' + nm("loadingDispatch") + "</p>";
+    $("#flow-sub").textContent = nm("dispatchPending");
+    $("#flow").innerHTML = ""; $("#legend9").innerHTML = "";
+    return;
+  }
   $("#dis-sub").textContent = (PROV === "All" ? nm("allProvinces") : nm(PROV)) +
     " \u00b7 " + nm("disSub") + " · " + nm("demandNote");
   dispatchGrid($("#dis"), $("#tip-dis"), d.profiles, y, d.demandProfile);
@@ -1128,16 +2168,29 @@ function draw() {
   step("map", drawMap);
   step("table", table);
 }
+/* the run list, grouped by the folder each run sits in, so a set of
+   sensitivities does not bury the runs kept next to it */
+function fillRunSelect() {
+  const byGroup = {};
+  (IDX.runs || []).forEach((r) => { (byGroup[r.group] = byGroup[r.group] || []).push(r); });
+  const option = (r) => '<option value="' + r.name + '"' +
+    (r.name === RUN ? " selected" : "") + ">" + r.name.split("/").pop() + "</option>";
+  let html = (byGroup[""] || []).map(option).join("");
+  Object.keys(byGroup).filter((g) => g).forEach((g) => {
+    html += '<optgroup label="' + g + '">' +
+      byGroup[g].map(option).join("") + "</optgroup>";
+  });
+  $("#run").innerHTML = html;
+}
 function fillSelects() {
-  $("#run").innerHTML = Object.keys(DATA.runs).map((r) =>
-    "<option" + (r === RUN ? " selected" : "") + ">" + r + "</option>").join("");
-  const provs = DATA.runs[RUN].provinces || [];
+  fillRunSelect();
+  const provs = cur().provinces || [];
   if (PROV !== "All" && provs.indexOf(PROV) < 0) PROV = "All";
   $("#prov").innerHTML = ['<option value="All"' + (PROV === "All" ? " selected" : "") +
     ">" + nm("allProvinces") + "</option>"].concat(provs.map((p) =>
     '<option value="' + p + '"' + (PROV === p ? " selected" : "") + ">" + nm(p) +
     "</option>")).join("");
-  const ys = DATA.runs[RUN].years, last = ys.length - 1;
+  const ys = cur().years, last = ys.length - 1;
   DISI = Math.min(DISI, last); MAPI = Math.min(MAPI, last);
   ["dis", "map"].forEach((p) => {
     const s = $("#" + p + "-year");
@@ -1152,12 +2205,7 @@ function fillSelects() {
     '<option value="' + k + '"' + (MAPSIZE === k ? " selected" : "") + ">" + nm(k) + "</option>")).join("");
 }
 
-$("#run").addEventListener("change", (e) => {
-  RUN = e.target.value;
-  const last = DATA.runs[RUN].years.length - 1;
-  DISI = last; MAPI = last;
-  fillSelects(); draw();
-});
+$("#run").addEventListener("change", (e) => { selectRun(e.target.value); });
 $("#dis-year").addEventListener("input", (e) => { DISI = +e.target.value; drawDispatch(); });
 $("#map-year").addEventListener("input", (e) => { MAPI = +e.target.value; drawMap(); });
 $("#mapsize").addEventListener("change", (e) => { MAPSIZE = e.target.value; drawMap(); });
@@ -1170,7 +2218,9 @@ $("#lang").addEventListener("click", () => {
   document.querySelectorAll("[data-i18n]").forEach((el2) => {
     el2.textContent = nm(el2.dataset.i18n);
   });
-  fillSelects(); draw();
+  $("#multi").textContent = nm(MULTI ? "viewSingle" : "viewMultiple");
+  if (MULTI) drawCompare();
+  if (cur()) { fillSelects(); draw(); }
 });
 $("#showlinks").addEventListener("click", (e) => {
   SHOWLINKS = !SHOWLINKS;
@@ -1180,65 +2230,202 @@ $("#showlinks").addEventListener("click", (e) => {
 $("#astable").addEventListener("click", (e) => {
   TABLE = !TABLE;
   e.currentTarget.setAttribute("aria-pressed", String(TABLE));
-  $("#tablecard").hidden = !TABLE;
+  $("#tablecard").hidden = !TABLE || MULTI;
+  $("#cmptablecard").hidden = !TABLE || !MULTI;
 });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => setTimeout(redraw, 30));
 new MutationObserver(() => setTimeout(redraw, 30))
   .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-function redraw() { if (DATA && DATA.runs[RUN]) draw(); }
+function redraw() {
+  if (MULTI) drawCompare();
+  else if (cur()) draw();
+}
 
-/* ---- loading, and reloading when a new run has been processed ---- */
-function applyData(d) {
-  DATA = d;
+/* ---- the two pages ---- */
+function showPage() {
+  $("#multiview").hidden = !MULTI;
+  $("#singleview").hidden = MULTI;
+  $("#runfilters").hidden = MULTI;
+  $("#multi").setAttribute("aria-pressed", String(MULTI));
+  $("#multi").textContent = nm(MULTI ? "viewSingle" : "viewMultiple");
+  $("#tablecard").hidden = !TABLE || MULTI;
+  $("#cmptablecard").hidden = !TABLE || !MULTI;
+}
+$("#multi").addEventListener("click", () => {
+  MULTI = !MULTI;
+  showPage();
+  if (MULTI) { if (CMP) drawCompare(); else loadCompare(); }
+  else if (cur()) { fillSelects(); draw(); }
+  else selectRun(RUN, true);
+});
+["cmp-ind", "cmp-measure", "cmp-mode", "cmp-dim", "cmp-ref", "cmp-sort",
+ "trade-x", "trade-y"].forEach((id) => {
+  $("#" + id).addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (id === "cmp-ind") CIND = v;
+    else if (id === "trade-x") CTX = v;
+    else if (id === "trade-y") CTY = v;
+    else if (id === "cmp-measure") CMEASURE = v;
+    else if (id === "cmp-mode") CMODE = v;
+    else if (id === "cmp-dim") CDIM = v;
+    else if (id === "cmp-ref") CREF = v;
+    else CSORT = v;
+    drawCompare();
+  });
+});
+$("#cmp-year").addEventListener("input", (e) => {
+  const years = cmpYears();
+  CYEAR = years[+e.target.value];
+  $("#cmp-yr").textContent = CYEAR || "";
+  drawCompare();
+});
+$("#cmp-labels").addEventListener("click", (e) => {
+  CLABELS = !CLABELS;
+  e.currentTarget.setAttribute("aria-pressed", String(CLABELS));
+  drawCompare();
+});
+
+/* ---- loading ----
+   the index names the runs without reading any of them. a run is fetched when
+   it is picked, its dispatch after the rest of it is already on screen, and a
+   folder of scenarios only ever by its summary files */
+function applyConstants(d) {
   ORDER = d.order; COSTS = d.costOrder; TILES = d.tiles;
   RENEW = d.renew; FORMS = d.forms;
   TWH = d.twhPerMWyr; SLICE = d.sliceFrac;
   RKEYS = RENEW.concat(["Battery", "Pumped"]);
+  if (d.resultsFd) $("#where").textContent = d.resultsFd;
 }
 function setStatus(text, bad) {
   const s = $("#status");
   s.textContent = text;
   s.style.color = bad ? "var(--bad)" : "var(--muted)";
 }
+async function get(url) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) {
+    let why = "server said " + r.status;
+    try { why = (await r.text()).slice(0, 300) || why; } catch (err) { /* keep why */ }
+    throw new Error(why);
+  }
+  return r.json();
+}
+function runsOf(group) {
+  return (IDX.runs || []).filter((r) => r.group === group);
+}
+
+/* one run: what it plots at once, then its hourly data behind it */
+async function selectRun(name, first) {
+  RUN = name;
+  if (!RUNS[name]) {
+    setStatus(nm("loadingRun") + " " + name);
+    $("#run").disabled = true;
+    try {
+      RUNS[name] = await get("api/run?part=core&name=" + encodeURIComponent(name));
+    } catch (err) {
+      setStatus(name + ": " + err.message, true);
+      $("#run").disabled = false;
+      return;
+    }
+    $("#run").disabled = false;
+  }
+  const last = cur().years.length - 1;
+  if (first || DISI == null) { DISI = last; MAPI = last; }
+  DISI = Math.min(DISI, last); MAPI = Math.min(MAPI, last);
+  fillSelects(); draw();
+  describe();
+  if (!cur().profiles) fetchDispatch(name);
+}
+async function fetchDispatch(name) {
+  try {
+    const d = await get("api/run?part=dispatch&name=" + encodeURIComponent(name));
+    if (!RUNS[name]) return;                 /* dropped by a Refresh meanwhile */
+    Object.assign(RUNS[name], d);
+  } catch (err) {
+    console.error("dispatch", err);
+    /* without it the dispatch and flow cards stay as they are, with their
+       note still up, and the rest of the page is untouched */
+    if (RUN === name) setStatus(name + ": " + err.message, true);
+    return;
+  }
+  if (RUN === name && !MULTI) { VIEW = buildView(); step("dispatch", drawDispatch); describe(); }
+}
+function describe() {
+  const found = (IDX.runs || []).find((r) => r.name === RUN);
+  setStatus((IDX.runs || []).length + " run(s) · " + RUN +
+    (found ? " · " + found.built : "") +
+    (cur() && !cur().profiles ? " · " + nm("loadingDispatch") : ""));
+}
+
+/* every scenario under the results folder, summaries only */
+async function loadCompare() {
+  if (INLINE) {
+    /* a snapshot carries the comparison with it, since there is no server
+       behind it to ask */
+    CMP = INLINE.compare || { folder: "", runs: [], skipped: [], columns: [], listFile: "" };
+    drawCompare();
+    return;
+  }
+  setStatus(nm("loadingRun"));
+  try {
+    CMP = await get("api/compare");
+  } catch (err) {
+    setStatus(err.message, true);
+    return;
+  }
+  setStatus(CMP.runs.length + " " + nm("nScenarios") + " · " +
+    CMP.folder + " · " + CMP.refreshed);
+  drawCompare();
+}
+
 async function load(first) {
   if (INLINE) {
-    applyData(INLINE);
+    /* a snapshot carries everything, so nothing is fetched */
+    IDX = { runs: Object.keys(INLINE.runs).map((n) => ({ name: n,
+      group: n.indexOf("/") > 0 ? n.split("/")[0] : "", built: INLINE.runs[n].built })),
+      resultsFd: INLINE.resultsFd };
+    applyConstants(INLINE);
+    Object.keys(INLINE.runs).forEach((n) => { RUNS[n] = INLINE.runs[n]; });
     $("#refresh").hidden = true;
-    setStatus("snapshot · " + Object.keys(INLINE.runs).length + " run(s)");
+    setStatus("snapshot · " + IDX.runs.length + " run(s)");
   } else {
     $("#refresh").disabled = true;
-    setStatus("reading results folder…");
+    setStatus("reading the results folder…");
     try {
-      const r = await fetch("api/data", { cache: "no-store" });
-      if (!r.ok) throw new Error("server said " + r.status);
-      applyData(await r.json());
+      IDX = await get("api/index");
     } catch (err) {
       setStatus("could not read the results: " + err.message +
         " — is results_viz.py still running?", true);
       $("#refresh").disabled = false;
       return;
     }
+    applyConstants(IDX);
     $("#refresh").disabled = false;
   }
-  const runs = Object.keys(DATA.runs);
-  if (!runs.length) {
+  const names = (IDX.runs || []).map((r) => r.name);
+  if (!names.length) {
     setStatus("no processed runs found — run process_results.py first", true);
     $("#tiles").innerHTML = "";
     return;
   }
-  if (runs.indexOf(RUN) < 0) RUN = runs[0];
-  if (first || DISI == null) { DISI = DATA.runs[RUN].years.length - 1; MAPI = DISI; }
-  DISI = Math.min(DISI, DATA.runs[RUN].years.length - 1);
-  MAPI = Math.min(MAPI, DATA.runs[RUN].years.length - 1);
-  if (!INLINE) {
-    setStatus(runs.length + " run(s) · " + runs.join(", ") +
-      " · refreshed " + DATA.refreshed);
+  /* a run already read stays read unless its folder has been written again,
+     which Refresh finds out by asking for it anew */
+  if (!first) {
+    const built = {};
+    (IDX.runs || []).forEach((r) => { built[r.name] = r.built; });
+    Object.keys(RUNS).forEach((n) => {
+      if (!INLINE && built[n] !== RUNS[n].built) delete RUNS[n];
+    });
   }
-  if (DATA.skipped && DATA.skipped.length) {
-    setStatus(DATA.skipped.length + " run(s) could not be read: " +
-      DATA.skipped.join("; "), true);
+  if (names.indexOf(RUN) < 0) RUN = names[0];
+  showPage();
+  /* whichever page is up is the one that reads anything */
+  if (MULTI) {
+    fillRunSelect();
+    loadCompare();
+  } else {
+    await selectRun(RUN, first);
   }
-  fillSelects(); draw();
 }
 $("#refresh").addEventListener("click", () => load(false));
 
